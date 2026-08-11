@@ -1,0 +1,25 @@
+# Gradle and build outputs
+.gradle/
+build/
+out/
+
+# IDE settings
+.idea/
+*.iml
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+src/main/resources/application-local.yml
+src/main/resources/application-local.properties
+
+# Logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db
+
+# Local agent work files
+/checklist.md
+/context-notes.md
+/docs/superpowers/
