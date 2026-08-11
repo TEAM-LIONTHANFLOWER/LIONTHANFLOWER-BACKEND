@@ -17,6 +17,11 @@ jobs:
   gradle:
     name: ci-gradle
     runs-on: ubuntu-latest
+    env:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: ${{ secrets.DEV_DB_URL }}
+      SPRING_DATASOURCE_USERNAME: ${{ secrets.DEV_DB_USERNAME }}
+      SPRING_DATASOURCE_PASSWORD: ${{ secrets.DEV_DB_PASSWORD }}
 
     steps:
       - name: Checkout
