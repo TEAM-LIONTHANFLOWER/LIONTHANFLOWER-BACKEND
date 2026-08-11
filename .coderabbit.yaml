@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit 설정: https://docs.coderabbit.ai/guides/configure-coderabbit
+
+language: "ko-KR"
+early_access: false
+tone_instructions: >-
+  한국어로 간결하고 직접적으로 작성한다. 실제 결함, 보안 문제, API·DB 계약 위반,
+  회귀 가능성처럼 조치가 필요한 내용만 근거와 영향 중심으로 지적한다.
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  in_progress_fortune: false
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    base_branches:
+      - "^develop$"
+      - "^main$"
+      - "^release/.*$"
+
+  path_filters:
+    - "!**/*.md"
+    - "!gradle/**"
+    - "!**/build/**"
+    - "!.idea/**"
+    - "!*.iml"
+
+  path_instructions:
+    - path: "src/main/java/com/lionthanflower/**"
+      instructions: |
+        한국어로 리뷰한다. Spotless(Google Java Format)가 처리하는 포맷팅 취향은 지적하지 않는다.
+        Controller는 요청 검증과 응답 조립에 집중하고, Service는 트랜잭션 경계와 유스케이스 규칙을 담당하는지 확인한다.
+        API DTO와 JPA 엔티티를 분리하고, request/response DTO는 단순 불변 구조로 유지되는지 확인한다.
+        시간 값은 UTC 기준으로 다루고, JPA open-in-view=false 환경에서 지연 로딩 문제가 생기지 않는지 확인한다.
+
+    - path: "src/main/java/com/lionthanflower/**/security/**"
+      instructions: |
+        인증 우회, 권한 누락, SecurityContext 오염, 토큰·사용자 식별정보의 로그 또는 응답 노출을 확인한다.
+        공개 엔드포인트와 보호 엔드포인트의 경계가 명확하고 테스트로 검증되는지 확인한다.
+
+    - path: "src/main/resources/application*.yml"
+      instructions: |
+        profile별 설정이 서로 충돌하지 않는지 확인한다.
+        운영 비밀값, DB 접속 정보, 토큰, 키가 파일에 직접 기록되지 않고 환경 변수나 secret으로 주입되는지 확인한다.
+        Flyway, JPA ddl-auto, Swagger, actuator 노출 설정이 환경별 의도와 맞는지 확인한다.
+
+    - path: "src/main/resources/db/migration/**"
+      instructions: |
+        Flyway migration은 순방향이어야 하며 이미 적용된 파일을 수정하지 않아야 한다.
+        파일명은 V<n>__<설명>.sql 형식을 따르고, 현재 마지막 version 다음 번호인지 확인한다.
+        제약 조건 추가 전 기존 데이터 보정이 필요한지, 이전 애플리케이션 코드와 호환되는지 확인한다.
+
+    - path: "src/test/**"
+      instructions: |
+        변경된 API 계약, DB 제약, 예외 경계, 인증·인가 경계를 회귀 테스트가 검증하는지 확인한다.
+        테스트는 외부 네트워크나 운영 자원에 의존하지 않고 실패 원인을 명확히 드러내야 한다.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        permissions 최소화, secrets 노출, pull_request_target 사용 여부, 배포 또는 CI 트리거 변경을 중점적으로 확인한다.
+        Gradle 검증 명령이 포맷, 테스트, 빌드를 실제로 실패시키는지 확인한다.
+
+    - path: "build.gradle"
+      instructions: |
+        Java 21과 Spring Boot 4.1.0 기준으로 호환되지 않는 의존성이나 중복 런타임 드라이버 추가를 확인한다.
+        테스트·검증 도구 의존성이 실제 CI 명령과 일치하는지 확인한다.
+
+chat:
+  auto_reply: true
