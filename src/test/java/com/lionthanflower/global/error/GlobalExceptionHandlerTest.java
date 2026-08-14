@@ -4,6 +4,7 @@ package com.lionthanflower.global.error;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -113,6 +114,19 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
+  void 요청_파라미터_타입_변환_실패를_공통_400_응답으로_변환한다() throws Exception {
+    mockMvc
+        .perform(get("/test/parameter-validation").param("age", "not-a-number"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.code").value("COMMON-400"))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("not-a-number"))));
+  }
+
+  @Test
   void 존재하지_않는_경로를_공통_404_응답으로_변환한다() throws Exception {
     mockMvc
         .perform(get("/unknown"))
@@ -125,6 +139,7 @@ class GlobalExceptionHandlerTest {
     mockMvc
         .perform(get("/test/validation"))
         .andExpect(status().isMethodNotAllowed())
+        .andExpect(header().string("Allow", "POST"))
         .andExpect(jsonPath("$.error.code").value("COMMON-405"));
   }
 
@@ -148,6 +163,14 @@ class GlobalExceptionHandlerTest {
                 .string(
                     org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("database password"))));
+  }
+
+  @Test
+  void 반환값_검증_실패를_공통_500_응답으로_변환한다() throws Exception {
+    mockMvc
+        .perform(get("/test/return-validation"))
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.error.code").value("COMMON-500"));
   }
 
   @RestController
@@ -178,6 +201,12 @@ class GlobalExceptionHandlerTest {
     @GetMapping("/unexpected")
     void unexpected() {
       throw new IllegalStateException("database password");
+    }
+
+    @GetMapping("/return-validation")
+    @Size(max = 3, message = "이름은 세 글자 이하여야 합니다.")
+    String returnValidation() {
+      return "long-name";
     }
   }
 

@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.MethodParameter;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -46,6 +48,11 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(HandlerMethodValidationException.class)
   public ResponseEntity<ErrorResponse> handleHandlerMethodValidationException(
       HandlerMethodValidationException exception) {
+    if (exception.isForReturnValue()) {
+      log.error("Return value validation failed", exception);
+      return createResponse(CommonErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
     List<ErrorResponse.FieldError> fieldErrors =
         exception.getParameterValidationResults().stream()
             .flatMap(result -> validationErrors(result).stream())
@@ -56,7 +63,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler({
     HttpMessageNotReadableException.class,
-    MissingServletRequestParameterException.class
+    MissingServletRequestParameterException.class,
+    MethodArgumentTypeMismatchException.class
   })
   public ResponseEntity<ErrorResponse> handleBadRequestException() {
     return createResponse(CommonErrorCode.INVALID_INPUT_VALUE);
@@ -68,8 +76,9 @@ public class GlobalExceptionHandler {
   }
 
   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-  public ResponseEntity<ErrorResponse> handleHttpRequestMethodNotSupportedException() {
-    return createResponse(CommonErrorCode.METHOD_NOT_ALLOWED);
+  public ResponseEntity<ErrorResponse> handleHttpRequestMethodNotSupportedException(
+      HttpRequestMethodNotSupportedException exception) {
+    return createResponse(CommonErrorCode.METHOD_NOT_ALLOWED, exception.getHeaders());
   }
 
   @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
@@ -85,6 +94,12 @@ public class GlobalExceptionHandler {
 
   private ResponseEntity<ErrorResponse> createResponse(ErrorCode errorCode) {
     return ResponseEntity.status(errorCode.status()).body(ErrorResponse.of(errorCode));
+  }
+
+  private ResponseEntity<ErrorResponse> createResponse(ErrorCode errorCode, HttpHeaders headers) {
+    return ResponseEntity.status(errorCode.status())
+        .headers(headers)
+        .body(ErrorResponse.of(errorCode));
   }
 
   private ResponseEntity<ErrorResponse> createValidationResponse(List<FieldError> fieldErrors) {
