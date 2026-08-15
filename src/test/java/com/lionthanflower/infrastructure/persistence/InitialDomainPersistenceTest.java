@@ -50,8 +50,6 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
     assertThatThrownBy(fixture::insertDuplicatePurchaseForVisit).isInstanceOf(SQLException.class);
 
     fixture.insertArc();
-    assertThatThrownBy(fixture::insertDuplicateArcForVisitAndPurchase)
-        .isInstanceOf(SQLException.class);
 
     PersistenceFixture noPurchaseFixture = PersistenceFixture.insertNoPurchaseRows(dataSource);
     noPurchaseFixture.insertVisitMemory();
@@ -80,6 +78,22 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
     String otherRevisionId = other.insertArcRevision(1);
 
     assertThatThrownBy(() -> fixture.updateSharedRevision(otherRevisionId))
+        .isInstanceOf(SQLException.class);
+  }
+
+  @Test
+  void Arc의_방문과_구매_유일_제약을_각각_검증한다() throws SQLException {
+    PersistenceFixture fixture = PersistenceFixture.insertRequiredRows(dataSource);
+    fixture.insertPurchase();
+    fixture.insertArc();
+
+    PersistenceFixture otherPurchase = PersistenceFixture.insertRequiredRows(dataSource);
+    otherPurchase.insertPurchase();
+    assertThatThrownBy(() -> fixture.insertArcWithPurchase(otherPurchase.getPurchaseId()))
+        .isInstanceOf(SQLException.class);
+
+    PersistenceFixture otherVisit = PersistenceFixture.insertRequiredRows(dataSource);
+    assertThatThrownBy(() -> fixture.insertArcForVisit(otherVisit.getVisitId()))
         .isInstanceOf(SQLException.class);
   }
 
@@ -155,24 +169,41 @@ final class PersistenceFixture {
     insertArc(arcId);
   }
 
-  void insertDuplicateArcForVisitAndPurchase() throws SQLException {
-    insertArc(UUID.randomUUID().toString());
+  void insertArcWithPurchase(String otherPurchaseId) throws SQLException {
+    insertArc(UUID.randomUUID().toString(), visitId, otherPurchaseId);
+  }
+
+  void insertArcForVisit(String otherVisitId) throws SQLException {
+    insertArc(UUID.randomUUID().toString(), otherVisitId, purchaseId);
   }
 
   private void insertArc(String id) throws SQLException {
+    insertArc(id, visitId, purchaseId);
+  }
+
+  private void insertArc(String id, String targetVisitId, String targetPurchaseId)
+      throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
       execute(
           connection,
           "insert into arcs (id, visit_id, purchase_id, customer_id, created_by_staff_id, status, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)",
           id,
-          visitId,
-          purchaseId,
+          targetVisitId,
+          targetPurchaseId,
           customerId,
           staffId,
           "DRAFT",
           TIMESTAMP,
           TIMESTAMP);
     }
+  }
+
+  String getVisitId() {
+    return visitId;
+  }
+
+  String getPurchaseId() {
+    return purchaseId;
   }
 
   void insertVisitMemory() throws SQLException {
