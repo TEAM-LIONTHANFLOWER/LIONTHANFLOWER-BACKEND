@@ -110,8 +110,9 @@ public class VisitMemory extends BaseEntity {
 
   public void complete(String generatedContent, Instant generatedAt) {
     requireGenerating();
-    this.generatedContent = requireText(generatedContent, "Visit Memory 생성 결과");
+    String normalizedGeneratedContent = requireText(generatedContent, "Visit Memory 생성 결과");
     requireInstant(generatedAt, "Visit Memory 생성 완료 시각");
+    this.generatedContent = normalizedGeneratedContent;
     this.generatedAt = generatedAt;
     this.finalizedAt = generatedAt;
     this.failureCode = null;

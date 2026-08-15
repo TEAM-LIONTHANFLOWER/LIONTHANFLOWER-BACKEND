@@ -102,9 +102,10 @@ public class ArcRevision extends BaseEntity {
 
   public void complete(String generatedContent, Instant generatedAt) {
     requireStatus(ArcRevisionStatus.GENERATING, "생성 중인 Arc 리비전만 완료할 수 있습니다.");
-    this.generatedContent = requireText(generatedContent, "Arc 생성 결과");
+    String normalizedGeneratedContent = requireText(generatedContent, "Arc 생성 결과");
     requireInstant(generatedAt, "Arc 생성 완료 시각");
     this.failureCode = null;
+    this.generatedContent = normalizedGeneratedContent;
     this.generatedAt = generatedAt;
     this.status = ArcRevisionStatus.READY;
   }

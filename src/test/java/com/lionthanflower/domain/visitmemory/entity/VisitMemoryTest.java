@@ -47,6 +47,20 @@ class VisitMemoryTest {
         .hasMessage("초안 또는 생성 실패 상태에서만 다시 생성할 수 있습니다.");
   }
 
+  @Test
+  void 생성_완료_시각이_없으면_Visit_Memory_결과를_변경하지_않는다() {
+    VisitMemory memory = createMemory();
+    memory.startGeneration();
+
+    assertThatThrownBy(() -> memory.complete("{\"summary\":\"완료\"}", null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Visit Memory 생성 완료 시각은 null일 수 없습니다.");
+    assertThat(memory.getStatus()).isEqualTo(VisitMemoryStatus.GENERATING);
+    assertThat(memory.getGeneratedContent()).isNull();
+    assertThat(memory.getGeneratedAt()).isNull();
+    assertThat(memory.getFinalizedAt()).isNull();
+  }
+
   private VisitMemory createMemory() {
     return VisitMemory.create(
         UUID.randomUUID(),

@@ -6,6 +6,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -13,6 +14,8 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Table(name = "stores")
 public class Store extends BaseEntity {
+
+  private static final Set<String> ISO_COUNTRY_CODES = Set.of(Locale.getISOCountries());
 
   @jakarta.persistence.Id
   @JdbcTypeCode(SqlTypes.CHAR)
@@ -39,7 +42,7 @@ public class Store extends BaseEntity {
 
   public static Store create(String name, String code, String countryCode) {
     String normalizedCountryCode = requireText(countryCode, "매장 국가 코드").toUpperCase(Locale.ROOT);
-    if (normalizedCountryCode.length() != 2) {
+    if (!ISO_COUNTRY_CODES.contains(normalizedCountryCode)) {
       throw new IllegalArgumentException("매장 국가 코드는 ISO alpha-2 형식이어야 합니다.");
     }
     return new Store(

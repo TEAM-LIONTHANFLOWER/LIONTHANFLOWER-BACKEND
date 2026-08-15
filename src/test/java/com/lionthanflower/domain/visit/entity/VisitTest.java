@@ -86,6 +86,15 @@ class VisitTest {
   }
 
   @Test
+  void 구매_여부가_확정되지_않은_방문은_완료할_수_없다() {
+    Visit visit = activeVisit();
+
+    assertThatThrownBy(() -> visit.complete(Instant.now()))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("Arc 또는 Visit Memory 진행 중인 방문만 종료할 수 있습니다.");
+  }
+
+  @Test
   void 진행_중인_방문을_취소한다() {
     Visit visit = activeVisit();
     Instant canceledAt = Instant.parse("2026-08-15T13:00:00Z");

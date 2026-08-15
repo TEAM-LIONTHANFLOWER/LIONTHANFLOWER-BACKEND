@@ -4,6 +4,7 @@ package com.lionthanflower.domain.purchase.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -35,5 +36,22 @@ class PurchaseDomainTest {
             () -> PurchaseItem.createAll(UUID.randomUUID(), List.of(variantId, variantId)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("같은 제품 Variant를 중복 선택할 수 없습니다.");
+  }
+
+  @Test
+  void 구매에는_방문_ID가_필요하다() {
+    assertThatThrownBy(() -> Purchase.create(null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("방문 ID는 null일 수 없습니다.");
+  }
+
+  @Test
+  void 구매_제품에는_null_Variant_ID가_포함될_수_없다() {
+    assertThatThrownBy(
+            () ->
+                PurchaseItem.createAll(
+                    UUID.randomUUID(), Arrays.asList(UUID.randomUUID(), null)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("제품 Variant ID는 null일 수 없습니다.");
   }
 }
