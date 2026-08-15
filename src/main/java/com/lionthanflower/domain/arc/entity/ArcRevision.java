@@ -1,6 +1,7 @@
 // Arc 생성 당시 입력과 OpenAI 결과의 전체 스냅샷을 관리하는 엔티티
 package com.lionthanflower.domain.arc.entity;
 
+import com.lionthanflower.domain.common.entity.SnapshotJsonSerializer;
 import com.lionthanflower.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -83,7 +84,7 @@ public class ArcRevision extends BaseEntity {
   public static ArcRevision start(
       UUID arcId,
       int revisionNumber,
-      String inputSnapshot,
+      ArcInputSnapshot inputSnapshot,
       String templateVersion,
       UUID createdByStaffId) {
     requireUuid(arcId, "Arc ID");
@@ -95,7 +96,7 @@ public class ArcRevision extends BaseEntity {
         UUID.randomUUID(),
         arcId,
         revisionNumber,
-        requireText(inputSnapshot, "Arc 입력 스냅샷"),
+        SnapshotJsonSerializer.serialize(inputSnapshot),
         requireText(templateVersion, "Arc 프레임 버전"),
         createdByStaffId);
   }

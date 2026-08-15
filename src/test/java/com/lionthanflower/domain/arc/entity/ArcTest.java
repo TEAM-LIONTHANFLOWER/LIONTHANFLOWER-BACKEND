@@ -4,7 +4,10 @@ package com.lionthanflower.domain.arc.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.lionthanflower.domain.product.entity.ProductCategory;
 import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +18,7 @@ class ArcTest {
     UUID staffId = UUID.randomUUID();
     Arc arc = Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), staffId);
     ArcRevision revision =
-        ArcRevision.start(arc.getId(), 1, "{\"schemaVersion\":1}", "arc-v1", staffId);
+        ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
     revision.complete("{\"title\":\"My MCM\"}", Instant.parse("2026-08-15T12:00:00Z"));
 
     arc.share(revision, Instant.parse("2026-08-15T12:01:00Z"));
@@ -43,7 +46,7 @@ class ArcTest {
         Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
     ArcRevision revision =
         ArcRevision.start(
-            arc.getId(), 1, "{\"schemaVersion\":1}", "arc-v1", arc.getCreatedByStaffId());
+            arc.getId(), 1, snapshot(), "arc-v1", arc.getCreatedByStaffId());
     revision.fail("OPENAI_UNAVAILABLE");
 
     assertThatThrownBy(() -> arc.share(revision, Instant.now()))
@@ -59,7 +62,7 @@ class ArcTest {
         ArcRevision.start(
             fixture.arc().getId(),
             2,
-            "{\"schemaVersion\":1}",
+            snapshot(),
             "arc-v1",
             fixture.arc().getCreatedByStaffId());
     next.complete("{\"title\":\"Next\"}", Instant.now());
@@ -73,7 +76,7 @@ class ArcTest {
   void 생성_완료_시각이_없으면_리비전_결과를_변경하지_않는다() {
     ArcRevision revision =
         ArcRevision.start(
-            UUID.randomUUID(), 1, "{\"schemaVersion\":1}", "arc-v1", UUID.randomUUID());
+            UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
 
     assertThatThrownBy(() -> revision.complete("{\"title\":\"My MCM\"}", null))
         .isInstanceOf(IllegalArgumentException.class)
@@ -89,7 +92,7 @@ class ArcTest {
         Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
     ArcRevision otherRevision =
         ArcRevision.start(
-            UUID.randomUUID(), 1, "{\"schemaVersion\":1}", "arc-v1", UUID.randomUUID());
+            UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
     otherRevision.complete("{\"title\":\"Other\"}", Instant.now());
 
     assertThatThrownBy(() -> arc.share(otherRevision, Instant.now()))
@@ -107,15 +110,64 @@ class ArcTest {
         .hasMessage("고객에게 공유된 Arc만 최종 저장할 수 있습니다.");
   }
 
+  @Test
+  void 검증된_Arc_입력을_JSON_스냅샷으로_저장한다() {
+    ArcRevision revision =
+        ArcRevision.start(UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
+
+    assertThat(revision.getInputSnapshot()).contains("\"purchasedProductVariantIds\"");
+    assertThat(revision.getInputSnapshot()).contains("\"preferredColors\":[\"BLACK\"]");
+    assertThat(revision.getInputSnapshot()).contains("\"staffObservation\":\"재방문 시 신상품 안내\"");
+  }
+
+  @Test
+  void 직원_관찰_메모는_200자를_초과할_수_없다() {
+    assertThatThrownBy(
+            () ->
+                new ArcInputSnapshot(
+                    List.of(UUID.randomUUID()),
+                    Set.of(),
+                    Set.of(),
+                    null,
+                    Set.of(),
+                    null,
+                    List.of(),
+                    Set.of(),
+                    null,
+                    Set.of(),
+                    Set.of(),
+                    null,
+                    "가".repeat(201)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("직원 관찰 메모는 200자를 초과할 수 없습니다.");
+  }
+
   private ArcAndRevision sharedArc() {
     UUID staffId = UUID.randomUUID();
     Arc arc = Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), staffId);
     ArcRevision revision =
-        ArcRevision.start(arc.getId(), 1, "{\"schemaVersion\":1}", "arc-v1", staffId);
+        ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
     revision.complete("{\"title\":\"My MCM\"}", Instant.parse("2026-08-15T12:00:00Z"));
     arc.share(revision, Instant.parse("2026-08-15T12:01:00Z"));
     return new ArcAndRevision(arc, revision);
   }
 
   private record ArcAndRevision(Arc arc, ArcRevision revision) {}
+
+  private ArcInputSnapshot snapshot() {
+    return new ArcInputSnapshot(
+        List.of(UUID.randomUUID()),
+        Set.of(ProductCategory.BAG),
+        Set.of(PreferredColor.BLACK),
+        null,
+        Set.of(PreferredStyle.CLASSIC_TIMELESS),
+        null,
+        List.of(UUID.randomUUID()),
+        Set.of(PurchaseCriterion.DESIGN),
+        null,
+        Set.of(ActualInteractionPreference.MODERATE_GUIDANCE),
+        Set.of(ProductExplanationPreference.KEY_POINTS_ONLY),
+        PurchaseDecisionStyle.COMPARE_FIRST,
+        "재방문 시 신상품 안내");
+  }
 }

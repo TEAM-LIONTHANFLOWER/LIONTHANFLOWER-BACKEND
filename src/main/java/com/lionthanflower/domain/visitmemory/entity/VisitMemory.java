@@ -1,6 +1,7 @@
 // 미구매 방문의 직원 입력과 OpenAI 결과 스냅샷을 관리하는 엔티티
 package com.lionthanflower.domain.visitmemory.entity;
 
+import com.lionthanflower.domain.common.entity.SnapshotJsonSerializer;
 import com.lionthanflower.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -83,7 +84,7 @@ public class VisitMemory extends BaseEntity {
       UUID visitId,
       UUID customerId,
       UUID createdByStaffId,
-      String inputSnapshot,
+      VisitMemoryInputSnapshot inputSnapshot,
       String templateVersion) {
     requireUuid(visitId, "방문 ID");
     requireUuid(customerId, "고객 ID");
@@ -93,7 +94,7 @@ public class VisitMemory extends BaseEntity {
         visitId,
         customerId,
         createdByStaffId,
-        requireText(inputSnapshot, "Visit Memory 입력 스냅샷"),
+        SnapshotJsonSerializer.serialize(inputSnapshot),
         requireText(templateVersion, "Visit Memory 프레임 버전"));
   }
 

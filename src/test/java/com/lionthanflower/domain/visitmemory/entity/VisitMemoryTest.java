@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -61,12 +63,37 @@ class VisitMemoryTest {
     assertThat(memory.getFinalizedAt()).isNull();
   }
 
+  @Test
+  void 검증된_Visit_Memory_입력을_JSON_스냅샷으로_저장한다() {
+    VisitMemory memory = createMemory();
+
+    assertThat(memory.getInputSnapshot()).contains("\"productEngagements\"");
+    assertThat(memory.getInputSnapshot()).contains("VIEWED_WITH_INTEREST");
+    assertThat(memory.getInputSnapshot()).contains("\"nextVisitMemo\":\"신상품 입고 시 안내\"");
+  }
+
+  @Test
+  void 다음_방문_메모는_200자를_초과할_수_없다() {
+    assertThatThrownBy(
+            () ->
+                new VisitMemoryInputSnapshot(
+                    Map.of(), Set.of(), null, Set.of(), null, "가".repeat(201)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("다음 방문 메모는 200자를 초과할 수 없습니다.");
+  }
+
   private VisitMemory createMemory() {
     return VisitMemory.create(
         UUID.randomUUID(),
         UUID.randomUUID(),
         UUID.randomUUID(),
-        "{\"products\":[]}",
+        new VisitMemoryInputSnapshot(
+            Map.of(UUID.randomUUID(), Set.of(ProductEngagement.VIEWED_WITH_INTEREST)),
+            Set.of(CustomerInterestPoint.DESIGN),
+            null,
+            Set.of(NoPurchaseReason.NEED_MORE_TIME),
+            null,
+            "신상품 입고 시 안내"),
         "visit-memory-v1");
   }
 }
