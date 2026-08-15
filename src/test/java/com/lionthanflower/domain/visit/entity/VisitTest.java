@@ -1,9 +1,10 @@
-// 방문 온보딩과 직원 매칭 상태 전이를 검증하는 테스트
+// 방문 온보딩과 구매 판단 상태 전이를 검증하는 테스트
 package com.lionthanflower.domain.visit.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.lionthanflower.domain.common.entity.LanguageCode;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -14,77 +15,80 @@ class VisitTest {
   private final UUID storeId = UUID.randomUUID();
 
   @Test
-  void 직원_추천_온보딩은_대기_상태가_된다() {
-    Visit visit = Visit.create(customerId, storeId, "A-001");
+  void 직원_추천_온보딩과_매칭을_진행한다() {
+    Visit visit = Visit.create(customerId, storeId);
+    Instant matchedAt = Instant.parse("2026-08-15T10:00:00Z");
+    UUID staffId = UUID.randomUUID();
 
-    visit.completeOnboarding(
-        ServiceLanguage.KO, InteractionStyle.STAFF_RECOMMENDATION, "신상품을 보고 싶어요");
-
+    visit.completeOnboarding(LanguageCode.EN, InteractionStyle.STAFF_RECOMMENDATION, "신상품을 보고 싶어요");
     assertThat(visit.getStatus()).isEqualTo(VisitStatus.WAITING_FOR_STAFF);
+
+    visit.assignStaff(staffId, matchedAt);
+    assertThat(visit.getStatus()).isEqualTo(VisitStatus.ACTIVE);
+    assertThat(visit.getStaffId()).isEqualTo(staffId);
   }
 
   @Test
-  void 혼자_보기_온보딩은_SELF_GUIDED_상태가_된다() {
-    Visit visit = Visit.create(customerId, storeId, "A-002");
+  void 혼자_보기_온보딩은_ACTIVE_상태가_된다() {
+    Visit visit = Visit.create(customerId, storeId);
 
-    visit.completeOnboarding(ServiceLanguage.JA, InteractionStyle.SELF_GUIDED, null);
+    visit.completeOnboarding(LanguageCode.JA, InteractionStyle.SELF_GUIDED, null);
 
-    assertThat(visit.getStatus()).isEqualTo(VisitStatus.SELF_GUIDED);
+    assertThat(visit.getStatus()).isEqualTo(VisitStatus.ACTIVE);
   }
 
   @Test
-  void 직원_추천_고객을_선택하면_MATCHED_상태가_된다() {
-    Visit visit = Visit.create(customerId, storeId, "A-003");
-    Instant matchedAt = Instant.parse("2026-08-13T13:00:00Z");
-    visit.completeOnboarding(ServiceLanguage.KO, InteractionStyle.STAFF_RECOMMENDATION, null);
+  void 구매_확정은_Arc_진행_상태로_전환한다() {
+    Visit visit = activeVisit();
+    UUID staffId = visit.getStaffId();
+    Instant decidedAt = Instant.parse("2026-08-15T11:00:00Z");
 
-    visit.matchForRecommendation(UUID.randomUUID(), UUID.randomUUID(), matchedAt);
+    visit.confirmPurchase(staffId, decidedAt);
 
-    assertThat(visit.getStatus()).isEqualTo(VisitStatus.MATCHED);
-    assertThat(visit.getMatchedAt()).isEqualTo(matchedAt);
-  }
-
-  @Test
-  void 혼자_보기_고객을_구매_후_선택하면_Arc_진행_상태가_된다() {
-    Visit visit = Visit.create(customerId, storeId, "A-004");
-    Instant grantedAt = Instant.parse("2026-08-13T14:00:00Z");
-    visit.completeOnboarding(ServiceLanguage.ZH, InteractionStyle.SELF_GUIDED, null);
-
-    visit.startArcForSelfGuided(UUID.randomUUID(), UUID.randomUUID(), grantedAt);
-
+    assertThat(visit.getPurchaseDecision()).isEqualTo(PurchaseDecision.PURCHASED);
+    assertThat(visit.getPurchaseDecidedByStaffId()).isEqualTo(staffId);
+    assertThat(visit.getPurchaseDecidedAt()).isEqualTo(decidedAt);
     assertThat(visit.getStatus()).isEqualTo(VisitStatus.ARC_IN_PROGRESS);
-    assertThat(visit.getArcCreationGrantedAt()).isEqualTo(grantedAt);
-    assertThat(visit.isArcCreationGranted()).isTrue();
   }
 
   @Test
-  void 직원_추천_고객은_매칭_후에만_Arc_권한을_받을_수_있다() {
-    Visit visit = Visit.create(customerId, storeId, "A-005");
-    visit.completeOnboarding(ServiceLanguage.RU, InteractionStyle.STAFF_RECOMMENDATION, null);
+  void 미구매_확정은_Visit_Memory_진행_상태로_전환한다() {
+    Visit visit = activeVisit();
+    Instant decidedAt = Instant.parse("2026-08-15T11:30:00Z");
 
-    assertThatThrownBy(() -> visit.grantArcCreation(Instant.now()))
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessage("매칭된 방문만 Arc 생성 권한을 받을 수 있습니다.");
+    visit.confirmNoPurchase(visit.getStaffId(), decidedAt);
+
+    assertThat(visit.getPurchaseDecision()).isEqualTo(PurchaseDecision.NOT_PURCHASED);
+    assertThat(visit.getStatus()).isEqualTo(VisitStatus.VISIT_MEMORY_IN_PROGRESS);
   }
 
   @Test
-  void 매칭된_직원_추천_고객에게_Arc_권한을_부여한다() {
-    Visit visit = Visit.create(customerId, storeId, "A-006");
-    Instant grantedAt = Instant.parse("2026-08-13T14:30:00Z");
-    visit.completeOnboarding(ServiceLanguage.KO, InteractionStyle.STAFF_RECOMMENDATION, null);
-    visit.matchForRecommendation(UUID.randomUUID(), UUID.randomUUID(), grantedAt.minusSeconds(60));
+  void 담당자가_아닌_직원은_구매를_확정할_수_없다() {
+    Visit visit = activeVisit();
 
-    visit.grantArcCreation(grantedAt);
-
-    assertThat(visit.getStatus()).isEqualTo(VisitStatus.ARC_IN_PROGRESS);
-    assertThat(visit.getArcCreationGrantedAt()).isEqualTo(grantedAt);
+    assertThatThrownBy(() -> visit.confirmPurchase(UUID.randomUUID(), Instant.now()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("담당 직원만 구매 여부를 확정할 수 있습니다.");
   }
 
   @Test
-  void 진행_중인_방문을_취소하면_종료_상태가_된다() {
-    Visit visit = Visit.create(customerId, storeId, "A-007");
-    Instant canceledAt = Instant.parse("2026-08-13T14:40:00Z");
-    visit.completeOnboarding(ServiceLanguage.KO, InteractionStyle.SELF_GUIDED, null);
+  void Arc_또는_Visit_Memory_진행_중인_방문을_완료한다() {
+    Visit purchasedVisit = activeVisit();
+    purchasedVisit.confirmPurchase(purchasedVisit.getStaffId(), Instant.now());
+    purchasedVisit.complete(Instant.parse("2026-08-15T12:00:00Z"));
+
+    Visit notPurchasedVisit = activeVisit();
+    notPurchasedVisit.confirmNoPurchase(notPurchasedVisit.getStaffId(), Instant.now());
+    notPurchasedVisit.complete(Instant.parse("2026-08-15T12:30:00Z"));
+
+    assertThat(purchasedVisit.getStatus()).isEqualTo(VisitStatus.COMPLETED);
+    assertThat(notPurchasedVisit.getStatus()).isEqualTo(VisitStatus.COMPLETED);
+  }
+
+  @Test
+  void 진행_중인_방문을_취소한다() {
+    Visit visit = activeVisit();
+    Instant canceledAt = Instant.parse("2026-08-15T13:00:00Z");
 
     visit.cancel(canceledAt);
 
@@ -92,14 +96,10 @@ class VisitTest {
     assertThat(visit.getCanceledAt()).isEqualTo(canceledAt);
   }
 
-  @Test
-  void 종료된_방문은_다시_매칭할_수_없다() {
-    Visit visit = Visit.create(customerId, storeId, "A-008");
-    visit.completeOnboarding(ServiceLanguage.KO, InteractionStyle.SELF_GUIDED, null);
-    visit.completeWithoutPurchase(Instant.parse("2026-08-13T15:00:00Z"));
-
-    assertThatThrownBy(
-            () -> visit.startArcForSelfGuided(UUID.randomUUID(), UUID.randomUUID(), Instant.now()))
-        .isInstanceOf(IllegalStateException.class);
+  private Visit activeVisit() {
+    Visit visit = Visit.create(customerId, storeId);
+    visit.completeOnboarding(LanguageCode.EN, InteractionStyle.SELF_GUIDED, null);
+    visit.assignStaff(UUID.randomUUID(), Instant.parse("2026-08-15T10:00:00Z"));
+    return visit;
   }
 }
