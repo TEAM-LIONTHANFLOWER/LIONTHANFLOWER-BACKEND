@@ -1,4 +1,4 @@
-// 방문별 최종 Arc 이미지와 고객 확정 상태를 관리하는 엔티티
+// 구매 방문의 Arc 공유와 고객 최종 저장 상태를 관리하는 엔티티
 package com.lionthanflower.domain.arc.entity;
 
 import com.lionthanflower.global.entity.BaseEntity;
@@ -31,27 +31,32 @@ public class Arc extends BaseEntity {
   private UUID visitId;
 
   @JdbcTypeCode(SqlTypes.CHAR)
+  @Column(name = "purchase_id", nullable = false, unique = true, length = 36)
+  private UUID purchaseId;
+
+  @JdbcTypeCode(SqlTypes.CHAR)
   @Column(name = "customer_id", nullable = false, length = 36)
   private UUID customerId;
-
-  @Column(name = "image_object_key", nullable = false, length = 1024)
-  private String imageObjectKey;
-
-  @Enumerated(EnumType.STRING)
-  @Column(name = "status", nullable = false, length = 40)
-  private ArcStatus status;
 
   @JdbcTypeCode(SqlTypes.CHAR)
   @Column(name = "created_by_staff_id", nullable = false, length = 36)
   private UUID createdByStaffId;
 
   @JdbcTypeCode(SqlTypes.CHAR)
-  @Column(name = "last_modified_by_staff_id", nullable = false, length = 36)
-  private UUID lastModifiedByStaffId;
+  @Column(name = "shared_revision_id", length = 36)
+  private UUID sharedRevisionId;
+
+  @JdbcTypeCode(SqlTypes.CHAR)
+  @Column(name = "final_revision_id", length = 36)
+  private UUID finalRevisionId;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "status", nullable = false, length = 40)
+  private ArcStatus status;
 
   @JdbcTypeCode(SqlTypes.TIMESTAMP)
-  @Column(name = "confirmed_at")
-  private Instant confirmedAt;
+  @Column(name = "shared_at")
+  private Instant sharedAt;
 
   @JdbcTypeCode(SqlTypes.TIMESTAMP)
   @Column(name = "finalized_at")
@@ -59,47 +64,45 @@ public class Arc extends BaseEntity {
 
   protected Arc() {}
 
-  private Arc(
-      UUID id, UUID visitId, UUID customerId, UUID createdByStaffId, String imageObjectKey) {
+  private Arc(UUID id, UUID visitId, UUID purchaseId, UUID customerId, UUID createdByStaffId) {
     this.id = id;
     this.visitId = visitId;
+    this.purchaseId = purchaseId;
     this.customerId = customerId;
     this.createdByStaffId = createdByStaffId;
-    this.lastModifiedByStaffId = createdByStaffId;
-    this.imageObjectKey = imageObjectKey;
     this.status = ArcStatus.DRAFT;
   }
 
-  public static Arc create(
-      UUID visitId, UUID customerId, UUID createdByStaffId, String imageObjectKey) {
+  public static Arc create(UUID visitId, UUID purchaseId, UUID customerId, UUID createdByStaffId) {
     requireUuid(visitId, "방문 ID");
+    requireUuid(purchaseId, "구매 ID");
     requireUuid(customerId, "고객 ID");
     requireUuid(createdByStaffId, "생성 직원 ID");
-    return new Arc(
-        UUID.randomUUID(),
-        visitId,
-        customerId,
-        createdByStaffId,
-        requireText(imageObjectKey, "Arc 이미지 객체 키"));
+    return new Arc(UUID.randomUUID(), visitId, purchaseId, customerId, createdByStaffId);
   }
 
-  public void replaceImage(String imageObjectKey, UUID staffId) {
-    requireStatus(ArcStatus.DRAFT, "수정 중인 Arc만 이미지를 변경할 수 있습니다.");
-    requireUuid(staffId, "수정 직원 ID");
-    this.imageObjectKey = requireText(imageObjectKey, "Arc 이미지 객체 키");
-    this.lastModifiedByStaffId = staffId;
+  public void share(ArcRevision revision, Instant sharedAt) {
+    if (status == ArcStatus.FINALIZED) {
+      throw new IllegalStateException("최종 저장된 Arc는 다시 공유할 수 없습니다.");
+    }
+    if (revision == null || !id.equals(revision.getArcId())) {
+      throw new IllegalArgumentException("같은 Arc의 리비전만 공유할 수 있습니다.");
+    }
+    if (revision.getStatus() != ArcRevisionStatus.READY) {
+      throw new IllegalStateException("생성이 완료된 Arc 리비전만 공유할 수 있습니다.");
+    }
+    revision.markShared(sharedAt);
+    this.sharedRevisionId = revision.getId();
+    this.sharedAt = sharedAt;
+    this.status = ArcStatus.SHARED;
   }
 
-  public void confirm(Instant confirmedAt) {
-    requireStatus(ArcStatus.DRAFT, "수정 중인 Arc만 고객이 확정할 수 있습니다.");
-    requireInstant(confirmedAt, "Arc 확정 시각");
-    this.confirmedAt = confirmedAt;
-    this.status = ArcStatus.CONFIRMED;
-  }
-
-  public void finalizeArc(Instant finalizedAt) {
-    requireStatus(ArcStatus.CONFIRMED, "고객이 확정한 Arc만 최종 저장할 수 있습니다.");
+  public void finalizeSharedRevision(Instant finalizedAt) {
+    if (status != ArcStatus.SHARED || sharedRevisionId == null) {
+      throw new IllegalStateException("고객에게 공유된 Arc만 최종 저장할 수 있습니다.");
+    }
     requireInstant(finalizedAt, "Arc 최종 저장 시각");
+    this.finalRevisionId = sharedRevisionId;
     this.finalizedAt = finalizedAt;
     this.status = ArcStatus.FINALIZED;
   }
@@ -112,38 +115,36 @@ public class Arc extends BaseEntity {
     return visitId;
   }
 
+  public UUID getPurchaseId() {
+    return purchaseId;
+  }
+
   public UUID getCustomerId() {
     return customerId;
-  }
-
-  public String getImageObjectKey() {
-    return imageObjectKey;
-  }
-
-  public ArcStatus getStatus() {
-    return status;
   }
 
   public UUID getCreatedByStaffId() {
     return createdByStaffId;
   }
 
-  public UUID getLastModifiedByStaffId() {
-    return lastModifiedByStaffId;
+  public UUID getSharedRevisionId() {
+    return sharedRevisionId;
   }
 
-  public Instant getConfirmedAt() {
-    return confirmedAt;
+  public UUID getFinalRevisionId() {
+    return finalRevisionId;
+  }
+
+  public ArcStatus getStatus() {
+    return status;
+  }
+
+  public Instant getSharedAt() {
+    return sharedAt;
   }
 
   public Instant getFinalizedAt() {
     return finalizedAt;
-  }
-
-  private void requireStatus(ArcStatus expected, String message) {
-    if (status != expected) {
-      throw new IllegalStateException(message);
-    }
   }
 
   private static void requireUuid(UUID value, String fieldName) {
@@ -156,12 +157,5 @@ public class Arc extends BaseEntity {
     if (value == null) {
       throw new IllegalArgumentException(fieldName + "은 null일 수 없습니다.");
     }
-  }
-
-  private static String requireText(String value, String fieldName) {
-    if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException(fieldName + "은 비어 있을 수 없습니다.");
-    }
-    return value.trim();
   }
 }
