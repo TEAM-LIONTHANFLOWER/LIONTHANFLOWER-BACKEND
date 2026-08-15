@@ -5,6 +5,7 @@ import com.lionthanflower.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.util.Locale;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -24,16 +25,28 @@ public class Store extends BaseEntity {
   @Column(name = "code", nullable = false, unique = true, length = 100)
   private String code;
 
+  @Column(name = "country_code", nullable = false, length = 2)
+  private String countryCode;
+
   protected Store() {}
 
-  private Store(UUID id, String name, String code) {
+  private Store(UUID id, String name, String code, String countryCode) {
     this.id = id;
     this.name = name;
     this.code = code;
+    this.countryCode = countryCode;
   }
 
-  public static Store create(String name, String code) {
-    return new Store(UUID.randomUUID(), requireText(name, "매장 이름"), requireText(code, "매장 코드"));
+  public static Store create(String name, String code, String countryCode) {
+    String normalizedCountryCode = requireText(countryCode, "매장 국가 코드").toUpperCase(Locale.ROOT);
+    if (normalizedCountryCode.length() != 2) {
+      throw new IllegalArgumentException("매장 국가 코드는 ISO alpha-2 형식이어야 합니다.");
+    }
+    return new Store(
+        UUID.randomUUID(),
+        requireText(name, "매장 이름"),
+        requireText(code, "매장 코드"),
+        normalizedCountryCode);
   }
 
   public UUID getId() {
@@ -46,6 +59,10 @@ public class Store extends BaseEntity {
 
   public String getCode() {
     return code;
+  }
+
+  public String getCountryCode() {
+    return countryCode;
   }
 
   private static String requireText(String value, String fieldName) {
