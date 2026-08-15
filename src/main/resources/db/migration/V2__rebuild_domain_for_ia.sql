@@ -71,7 +71,7 @@ CREATE TABLE product_variants (
     external_variant_code VARCHAR(100) NOT NULL,
     image_object_key VARCHAR(1024) NOT NULL,
     color VARCHAR(40) NOT NULL,
-    option VARCHAR(40) NOT NULL,
+    size_option VARCHAR(40) NOT NULL,
     created_at TIMESTAMP(6) NOT NULL,
     updated_at TIMESTAMP(6) NOT NULL,
     CONSTRAINT pk_product_variants PRIMARY KEY (id),

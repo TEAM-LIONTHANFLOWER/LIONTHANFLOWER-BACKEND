@@ -35,7 +35,7 @@ public class ProductVariant extends BaseEntity {
   private ProductColor color;
 
   @Enumerated(EnumType.STRING)
-  @Column(name = "option", nullable = false, length = 40)
+  @Column(name = "size_option", nullable = false, length = 40)
   private ProductOption option;
 
   protected ProductVariant() {}
