@@ -1,105 +1,119 @@
-# ADR-003. Visit과 Arc 매칭 상태 전이
+# ADR-003. Visit과 Arc 및 Visit Memory 상태 전이
 
 - 상태. Accepted
-- 결정일. 2026-08-14
-- 범위. 고객 온보딩, 직원 매칭, 구매 확인, Arc 확정과 방문 종료
+- 결정일. 2026-08-15
+- 범위. 고객 온보딩, 직원 연결, 구매 판단, Arc 공유와 방문 종료
 
 ## 문맥
 
-고객의 응대 방식에 따라 매칭 흐름이 달라진다. 직원 추천을 원하는 고객은 직원 목록에서 선택되어야 하고, 혼자 보기를 선택한 고객은 구매한 경우에만 직원이 목록에서 선택해 Arc를 발급받을 수 있다.
-
-Arc는 직원이 생성한 뒤 고객이 최종 이미지를 확인하고, 직원이 방문을 종료할 때 최종 저장된다. 따라서 Visit과 Arc의 상태를 분리하면서도 허용된 전이를 명확히 해야 한다.
+IA는 직원 추천 고객과 혼자 보기 고객을 같은 Visit에서 처리한다. 직원은 오프라인 응대 중 구매 여부를 확정하고, 구매 고객에게는 Arc를 공유한 뒤 고객이 최종 저장한다. 미구매 고객에게는 직원 저장 동작으로 Visit Memory를 생성하며 OpenAI 실패 시 재시도할 수 있어야 한다.
 
 ## 결정
 
 ### Visit 상태
 
-Visit은 다음 상태를 사용한다.
-
 - `ONBOARDING`. 고객이 초기 설정을 진행 중이다.
 - `WAITING_FOR_STAFF`. 직원 추천을 선택하고 직원 연결을 기다린다.
-- `MATCHED`. 직원 추천 고객이 직원과 연결되어 오프라인 응대 중이다.
-- `SELF_GUIDED`. 고객이 혼자 상품을 보고 있다.
-- `ARC_IN_PROGRESS`. 구매 확인 후 Arc 생성·수정·고객 확정을 진행 중이다.
-- `COMPLETED`. 방문이 정상 종료되었다.
+- `ACTIVE`. 직원이 연결되었거나 혼자 보기 고객이 응대 중이다.
+- `ARC_IN_PROGRESS`. 직원이 구매를 확정하고 Arc를 생성·공유하는 중이다.
+- `VISIT_MEMORY_IN_PROGRESS`. 직원이 미구매를 확정하고 Visit Memory를 생성하는 중이다.
+- `COMPLETED`. Arc 또는 Visit Memory가 최종 저장되어 방문이 정상 종료되었다.
 - `CANCELED`. 고객 이탈 또는 직원 취소로 종료되었다.
 
-### 직원 추천 흐름
+### Visit 전이
 
 ```text
 ONBOARDING
-  -- STAFF_RECOMMENDATION 선택 --> WAITING_FOR_STAFF
-  -- 직원이 고객 선택 -----------> MATCHED
-  -- 직원이 구매 확인 -----------> ARC_IN_PROGRESS
-  -- 고객이 Arc 확정, 직원 종료 --> COMPLETED
+  ├─ STAFF_RECOMMENDATION 선택 → WAITING_FOR_STAFF
+  └─ SELF_GUIDED 선택          → ACTIVE
+
+WAITING_FOR_STAFF
+  └─ 직원 연결                  → ACTIVE
+
+ACTIVE
+  ├─ 직원 구매 확정             → ARC_IN_PROGRESS
+  ├─ 직원 미구매 확정            → VISIT_MEMORY_IN_PROGRESS
+  └─ 취소                       → CANCELED
+
+ARC_IN_PROGRESS
+  ├─ 고객 Arc 최종 저장          → COMPLETED
+  └─ 취소                       → CANCELED
+
+VISIT_MEMORY_IN_PROGRESS
+  ├─ 생성 성공·최종 저장         → COMPLETED
+  ├─ 생성 실패                   → 상태 유지, 재시도 가능
+  └─ 취소                       → CANCELED
 ```
 
-### 혼자 보기 흐름
+혼자 보기 고객의 구매 또는 미구매 판단 전에는 직원이 `assignStaff`로 담당 직원을 연결한다. 구매 판단은 담당 직원만 수행할 수 있다.
+
+### Arc와 ArcRevision 상태
 
 ```text
-ONBOARDING
-  -- SELF_GUIDED 선택 -----------> SELF_GUIDED
-  -- 구매 후 직원이 고객 선택 ----> ARC_IN_PROGRESS
-  -- 고객이 Arc 확정, 직원 종료 --> COMPLETED
+Arc
+DRAFT → SHARED → FINALIZED
+
+ArcRevision
+GENERATING → READY
+            └→ FAILED → 새 리비전 생성으로 재시도
 ```
 
-혼자 보기 고객이 구매하지 않은 경우에는 `SELF_GUIDED`에서 `COMPLETED`로 종료할 수 있다. 고객 이탈이나 직원 취소는 종료되지 않은 진행 상태에서 `CANCELED`로 전환한다.
+- 직원은 전체 입력 스냅샷과 템플릿 버전을 가진 `ArcRevision`을 생성한다.
+- OpenAI 결과는 `generatedContent`에 저장하고, READY 리비전만 고객에게 공유한다.
+- 고객에게 공유된 리비전의 ID를 Arc에 기록하며, 고객 최종 저장 시 그 리비전을 `finalRevisionId`로 확정한다.
+- 최종 저장된 Arc는 다시 공유하지 않는다.
+- 수정 요청은 기존 리비전을 덮어쓰지 않고 새 리비전으로 보관한다.
 
-### Arc 상태
+### Visit Memory 생성
 
-Arc는 다음 상태를 사용한다.
+- 직원 저장 동작은 Visit Memory의 OpenAI 생성 시작과 최종 저장을 함께 처리한다.
+- 생성 성공 시 Visit Memory를 `FINALIZED`로 바꾸고 Visit을 `COMPLETED`로 전환한다.
+- 생성 실패 시 Visit Memory를 `FAILED`로 남기고 Visit은 `VISIT_MEMORY_IN_PROGRESS` 상태로 유지한다.
+- 직원은 FAILED Visit Memory를 다시 `GENERATING`으로 전환해 재시도할 수 있다.
+- 고객 알림은 MVP 범위에 없으며, Arc 수정 요청은 오프라인에서 직원에게 전달한다.
 
-- `DRAFT`. 직원이 생성하거나 수정 중이다.
-- `CONFIRMED`. 고객이 최종 이미지를 확인했다.
-- `FINALIZED`. 직원이 Arc 저장과 방문 종료를 완료했다.
+## 전이 책임
 
-Arc 전이는 `DRAFT → CONFIRMED → FINALIZED`만 허용한다. 방문당 Arc는 최대 한 건이며, 수정 시 기존 이미지 객체 키를 새 객체 키로 교체하고 수정 이력은 별도로 저장하지 않는다.
-
-### 전이 책임
-
-- `Visit` 엔티티는 자신의 상태 전이만 검증한다.
-- `Arc` 엔티티는 자신의 상태 전이만 검증한다.
-- Application Service는 직원·단말·방문이 같은 매장인지 확인하고, 구매 확인 권한과 Arc 생성 권한을 조정한다.
-- 매칭 종료 Application Service는 Arc가 `CONFIRMED`인지 확인한 뒤 Arc의 `FINALIZED` 전환과 Visit의 `COMPLETED` 전환을 하나의 트랜잭션으로 처리한다.
-- 직원의 중복 고객 선택은 Visit의 낙관적 잠금 `version`으로 방어한다.
+- `Visit`, `Arc`, `ArcRevision`, `VisitMemory` 엔티티는 자신의 상태 전이와 필수 시각을 검증한다.
+- Application Service는 직원·방문·매장의 일치 여부와 인증 주체를 검증하고 구매·미구매 판단을 호출한다.
+- 외부 OpenAI 호출은 데이터베이스 트랜잭션 밖에서 수행하고 결과 상태 변경은 별도 트랜잭션으로 저장한다.
+- Arc 최종 저장과 Visit 완료, Visit Memory 최종 저장과 Visit 완료는 각각 하나의 애플리케이션 트랜잭션으로 처리한다.
 
 ## 대안
 
-### SELF_GUIDED 고객은 Arc를 발급받을 수 없도록 제한
+### 직원이 Arc를 최종 저장
 
-직원 추천 흐름은 단순해지지만, 혼자 보기를 선택한 고객이 구매 후 Arc를 받을 수 없다는 서비스 요구사항을 충족하지 못한다. 구매 후 직원 단말 목록에서 고객을 선택하는 경로를 별도로 허용한다.
+IA는 직원이 Arc를 생성하고 공유하지만 최종 저장 선택은 고객이 한다. 직원 최종 저장으로 제한하면 고객이 내용을 확인하고 확정하는 흐름을 잃는다.
 
-### 고객 매칭 승인을 별도 상태로 추가
+### OpenAI 실패 시 Visit 완료 처리
 
-직원이 고객을 선택한 뒤 고객의 추가 승인을 받으면 오선택을 줄일 수 있지만, 매장 오프라인 응대 흐름이 길어지고 현재 MVP 화면·API 요구와 맞지 않는다. 직원 선택 즉시 매칭되도록 결정한다.
+실패한 결과가 고객 이력으로 남을 수 있어 Visit 완료를 보류하고 FAILED 상태에서 재시도하도록 결정한다.
 
-### Arc 수정 이력과 여러 버전 보관
+### 리비전 없이 현재 Arc만 덮어쓰기
 
-고객 피드백 과정의 복구에는 유리하지만, MVP에서 필요한 것은 최종본뿐이다. 데이터 모델과 객체 스토리지 비용을 줄이기 위해 현재 이미지 객체 키만 유지한다.
+수정 이력과 생성 시점의 입력을 잃게 된다. 전체 입력 스냅샷과 결과를 리비전에 보존해 고객별 수정 이력을 직원이 확인할 수 있게 한다.
 
 ## 결과
 
 ### 장점
 
-- 직원 추천과 혼자 보기 고객의 흐름을 같은 Visit 모델로 표현할 수 있다.
-- 구매 확인 전에는 Arc 생성 상태로 진입할 수 없다.
-- 고객 확정과 직원 종료 순서를 상태로 강제할 수 있다.
-- 방문당 최종 Arc 한 건이라는 조회 규칙이 데이터베이스 유니크 제약조건으로 보장된다.
+- 두 응대 방식이 하나의 Visit 상태 모델로 수렴한다.
+- 구매 여부를 확정한 담당 직원을 기록하고 중복 구매·Arc·Visit Memory를 데이터베이스 유일 제약으로 방어할 수 있다.
+- OpenAI 실패를 숨기지 않고 재시도 가능한 상태로 보존한다.
+- Arc 입력과 결과의 시점별 스냅샷을 유지한다.
 
 ### 비용과 제한
 
-- Visit과 Arc를 함께 종료하는 Application Service의 트랜잭션 구현이 필요하다.
-- Arc 수정 이력이 없어 과거 이미지 복구와 변경 비교를 제공할 수 없다.
-- 고객이 브라우저 쿠키를 잃으면 이전 Visit을 다시 이어갈 수 없다.
-- 구매 여부는 외부 결제 시스템이 아니라 직원의 오프라인 확인 입력을 신뢰한다.
+- Application Service가 여러 Aggregate의 같은 매장·담당 직원 규칙을 검증해야 한다.
+- OpenAI 호출 재시도와 고객 화면의 공유 상태 조회 API는 후속 구현이 필요하다.
+- 알림과 직원 프로필 수정 기능은 MVP에서 제공하지 않는다.
 
 ## 구현 근거
 
 - `domain/visit/entity/Visit.java`
 - `domain/visit/entity/VisitStatus.java`
+- `domain/visit/entity/PurchaseDecision.java`
 - `domain/arc/entity/Arc.java`
-- `domain/arc/entity/ArcStatus.java`
-- `domain/visit/entity/VisitTest.java`
-- `domain/arc/entity/ArcTest.java`
-- `V1__create_initial_domain_tables.sql`
-
+- `domain/arc/entity/ArcRevision.java`
+- `domain/visitmemory/entity/VisitMemory.java`
+- `V2__rebuild_domain_for_ia.sql`
