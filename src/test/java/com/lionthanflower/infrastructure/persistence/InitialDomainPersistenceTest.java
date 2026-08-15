@@ -47,10 +47,11 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
     PersistenceFixture fixture = PersistenceFixture.insertRequiredRows(dataSource);
 
     fixture.insertPurchase();
-    assertThatThrownBy(fixture::insertPurchase).isInstanceOf(SQLException.class);
+    assertThatThrownBy(fixture::insertDuplicatePurchaseForVisit).isInstanceOf(SQLException.class);
 
     fixture.insertArc();
-    assertThatThrownBy(fixture::insertArc).isInstanceOf(SQLException.class);
+    assertThatThrownBy(fixture::insertDuplicateArcForVisitAndPurchase)
+        .isInstanceOf(SQLException.class);
 
     PersistenceFixture noPurchaseFixture = PersistenceFixture.insertNoPurchaseRows(dataSource);
     noPurchaseFixture.insertVisitMemory();
@@ -65,6 +66,21 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
     fixture.insertArcRevision(1);
 
     assertThatThrownBy(() -> fixture.insertArcRevision(1)).isInstanceOf(SQLException.class);
+  }
+
+  @Test
+  void 다른_Arc의_리비전을_공유_리비전으로_참조할_수_없다() throws SQLException {
+    PersistenceFixture fixture = PersistenceFixture.insertRequiredRows(dataSource);
+    fixture.insertPurchase();
+    fixture.insertArc();
+
+    PersistenceFixture other = PersistenceFixture.insertRequiredRows(dataSource);
+    other.insertPurchase();
+    other.insertArc();
+    String otherRevisionId = other.insertArcRevision(1);
+
+    assertThatThrownBy(() -> fixture.updateSharedRevision(otherRevisionId))
+        .isInstanceOf(SQLException.class);
   }
 
   private int countTables(String... tableNames) throws SQLException {
@@ -116,11 +132,19 @@ final class PersistenceFixture {
   }
 
   void insertPurchase() throws SQLException {
+    insertPurchase(purchaseId);
+  }
+
+  void insertDuplicatePurchaseForVisit() throws SQLException {
+    insertPurchase(UUID.randomUUID().toString());
+  }
+
+  private void insertPurchase(String id) throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
       execute(
           connection,
           "insert into purchases (id, visit_id, created_at, updated_at) values (?, ?, ?, ?)",
-          purchaseId,
+          id,
           visitId,
           TIMESTAMP,
           TIMESTAMP);
@@ -128,11 +152,19 @@ final class PersistenceFixture {
   }
 
   void insertArc() throws SQLException {
+    insertArc(arcId);
+  }
+
+  void insertDuplicateArcForVisitAndPurchase() throws SQLException {
+    insertArc(UUID.randomUUID().toString());
+  }
+
+  private void insertArc(String id) throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
       execute(
           connection,
           "insert into arcs (id, visit_id, purchase_id, customer_id, created_by_staff_id, status, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)",
-          arcId,
+          id,
           visitId,
           purchaseId,
           customerId,
@@ -160,12 +192,13 @@ final class PersistenceFixture {
     }
   }
 
-  void insertArcRevision(int revisionNumber) throws SQLException {
+  String insertArcRevision(int revisionNumber) throws SQLException {
+    String revisionId = UUID.randomUUID().toString();
     try (Connection connection = dataSource.getConnection()) {
       execute(
           connection,
           "insert into arc_revisions (id, arc_id, revision_number, input_snapshot, template_version, status, created_by_staff_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          UUID.randomUUID().toString(),
+          revisionId,
           arcId,
           revisionNumber,
           "{\"schemaVersion\":1}",
@@ -174,6 +207,18 @@ final class PersistenceFixture {
           staffId,
           TIMESTAMP,
           TIMESTAMP);
+    }
+    return revisionId;
+  }
+
+  void updateSharedRevision(String revisionId) throws SQLException {
+    try (Connection connection = dataSource.getConnection()) {
+      execute(
+          connection,
+          "update arcs set shared_revision_id = ?, status = ? where id = ?",
+          revisionId,
+          "SHARED",
+          arcId);
     }
   }
 

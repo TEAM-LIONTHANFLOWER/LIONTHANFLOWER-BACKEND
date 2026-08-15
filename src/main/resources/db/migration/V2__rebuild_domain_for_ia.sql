@@ -140,15 +140,16 @@ CREATE TABLE arc_revisions (
     updated_at TIMESTAMP(6) NOT NULL,
     CONSTRAINT pk_arc_revisions PRIMARY KEY (id),
     CONSTRAINT uk_arc_revisions_arc_number UNIQUE (arc_id, revision_number),
+    CONSTRAINT uk_arc_revisions_id_arc UNIQUE (id, arc_id),
     CONSTRAINT fk_arc_revisions_arc FOREIGN KEY (arc_id) REFERENCES arcs (id),
     CONSTRAINT fk_arc_revisions_staff FOREIGN KEY (created_by_staff_id) REFERENCES staff (id)
 );
 
 ALTER TABLE arcs
     ADD CONSTRAINT fk_arcs_shared_revision
-        FOREIGN KEY (shared_revision_id) REFERENCES arc_revisions (id),
+        FOREIGN KEY (shared_revision_id, id) REFERENCES arc_revisions (id, arc_id),
     ADD CONSTRAINT fk_arcs_final_revision
-        FOREIGN KEY (final_revision_id) REFERENCES arc_revisions (id);
+        FOREIGN KEY (final_revision_id, id) REFERENCES arc_revisions (id, arc_id);
 
 CREATE TABLE visit_memories (
     id CHAR(36) NOT NULL,
