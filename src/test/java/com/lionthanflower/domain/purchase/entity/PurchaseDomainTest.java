@@ -48,9 +48,7 @@ class PurchaseDomainTest {
   @Test
   void 구매_제품에는_null_Variant_ID가_포함될_수_없다() {
     assertThatThrownBy(
-            () ->
-                PurchaseItem.createAll(
-                    UUID.randomUUID(), Arrays.asList(UUID.randomUUID(), null)))
+            () -> PurchaseItem.createAll(UUID.randomUUID(), Arrays.asList(UUID.randomUUID(), null)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("제품 Variant ID는 null일 수 없습니다.");
   }

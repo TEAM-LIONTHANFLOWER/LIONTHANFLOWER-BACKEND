@@ -18,12 +18,12 @@ import org.hibernate.type.SqlTypes;
 @Table(
     name = "arc_revisions",
     uniqueConstraints = {
-        @UniqueConstraint(
-            name = "uk_arc_revisions_arc_number",
-            columnNames = {"arc_id", "revision_number"}),
-        @UniqueConstraint(
-            name = "uk_arc_revisions_id_arc",
-            columnNames = {"id", "arc_id"})
+      @UniqueConstraint(
+          name = "uk_arc_revisions_arc_number",
+          columnNames = {"arc_id", "revision_number"}),
+      @UniqueConstraint(
+          name = "uk_arc_revisions_id_arc",
+          columnNames = {"id", "arc_id"})
     })
 public class ArcRevision extends BaseEntity {
 

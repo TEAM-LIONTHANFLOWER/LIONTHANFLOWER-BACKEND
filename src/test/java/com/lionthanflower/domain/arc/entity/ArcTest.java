@@ -17,8 +17,7 @@ class ArcTest {
   void 직원이_READY_리비전을_고객에게_공유한다() {
     UUID staffId = UUID.randomUUID();
     Arc arc = Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), staffId);
-    ArcRevision revision =
-        ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
+    ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
     revision.complete("{\"title\":\"My MCM\"}", Instant.parse("2026-08-15T12:00:00Z"));
 
     arc.share(revision, Instant.parse("2026-08-15T12:01:00Z"));
@@ -45,8 +44,7 @@ class ArcTest {
     Arc arc =
         Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
     ArcRevision revision =
-        ArcRevision.start(
-            arc.getId(), 1, snapshot(), "arc-v1", arc.getCreatedByStaffId());
+        ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", arc.getCreatedByStaffId());
     revision.fail("OPENAI_UNAVAILABLE");
 
     assertThatThrownBy(() -> arc.share(revision, Instant.now()))
@@ -60,11 +58,7 @@ class ArcTest {
     fixture.arc().finalizeSharedRevision(Instant.now());
     ArcRevision next =
         ArcRevision.start(
-            fixture.arc().getId(),
-            2,
-            snapshot(),
-            "arc-v1",
-            fixture.arc().getCreatedByStaffId());
+            fixture.arc().getId(), 2, snapshot(), "arc-v1", fixture.arc().getCreatedByStaffId());
     next.complete("{\"title\":\"Next\"}", Instant.now());
 
     assertThatThrownBy(() -> fixture.arc().share(next, Instant.now()))
@@ -75,8 +69,7 @@ class ArcTest {
   @Test
   void 생성_완료_시각이_없으면_리비전_결과를_변경하지_않는다() {
     ArcRevision revision =
-        ArcRevision.start(
-            UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
+        ArcRevision.start(UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
 
     assertThatThrownBy(() -> revision.complete("{\"title\":\"My MCM\"}", null))
         .isInstanceOf(IllegalArgumentException.class)
@@ -91,8 +84,7 @@ class ArcTest {
     Arc arc =
         Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
     ArcRevision otherRevision =
-        ArcRevision.start(
-            UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
+        ArcRevision.start(UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
     otherRevision.complete("{\"title\":\"Other\"}", Instant.now());
 
     assertThatThrownBy(() -> arc.share(otherRevision, Instant.now()))
@@ -145,8 +137,7 @@ class ArcTest {
   private ArcAndRevision sharedArc() {
     UUID staffId = UUID.randomUUID();
     Arc arc = Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), staffId);
-    ArcRevision revision =
-        ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
+    ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
     revision.complete("{\"title\":\"My MCM\"}", Instant.parse("2026-08-15T12:00:00Z"));
     arc.share(revision, Instant.parse("2026-08-15T12:01:00Z"));
     return new ArcAndRevision(arc, revision);

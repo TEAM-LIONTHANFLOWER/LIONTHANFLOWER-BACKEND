@@ -44,8 +44,7 @@ class StoreDomainTest {
   void 직원_구사_언어에는_null이_포함될_수_없다() {
     Set<LanguageCode> languages = new HashSet<>(Arrays.asList(LanguageCode.EN, null));
 
-    assertThatThrownBy(
-            () -> Staff.create(UUID.randomUUID(), "김회윤", "staff-token-hash", languages))
+    assertThatThrownBy(() -> Staff.create(UUID.randomUUID(), "김회윤", "staff-token-hash", languages))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("직원 구사 언어는 하나 이상이어야 합니다.");
   }
