@@ -4,9 +4,9 @@ package com.lionthanflower.domain.visit.entity;
 public enum VisitStatus {
   ONBOARDING,
   WAITING_FOR_STAFF,
-  MATCHED,
-  SELF_GUIDED,
+  ACTIVE,
   ARC_IN_PROGRESS,
+  VISIT_MEMORY_IN_PROGRESS,
   COMPLETED,
   CANCELED
 }

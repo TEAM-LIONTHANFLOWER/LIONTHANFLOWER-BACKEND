@@ -1,6 +1,7 @@
-// 고객 방문의 온보딩, 매칭, Arc 진행과 종료 상태를 관리하는 엔티티
+// 고객 방문의 온보딩, 직원 연결, 구매 판단과 종료 상태를 관리하는 엔티티
 package com.lionthanflower.domain.visit.entity;
 
+import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,8 +9,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -17,10 +18,6 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Table(
     name = "visits",
-    uniqueConstraints =
-        @UniqueConstraint(
-            name = "uk_visits_store_waiting_number",
-            columnNames = {"store_id", "waiting_number"}),
     indexes = {
       @Index(
           name = "idx_visits_store_status_created_at",
@@ -46,16 +43,9 @@ public class Visit extends BaseEntity {
   @Column(name = "staff_id", length = 36)
   private UUID staffId;
 
-  @JdbcTypeCode(SqlTypes.CHAR)
-  @Column(name = "store_device_id", length = 36)
-  private UUID storeDeviceId;
-
-  @Column(name = "waiting_number", nullable = false, length = 40)
-  private String waitingNumber;
-
   @Enumerated(EnumType.STRING)
   @Column(name = "service_language", length = 40)
-  private ServiceLanguage serviceLanguage;
+  private LanguageCode serviceLanguage;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "interaction_style", length = 40)
@@ -68,9 +58,17 @@ public class Visit extends BaseEntity {
   @Column(name = "status", nullable = false, length = 40)
   private VisitStatus status;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "purchase_decision", nullable = false, length = 40)
+  private PurchaseDecision purchaseDecision;
+
+  @JdbcTypeCode(SqlTypes.CHAR)
+  @Column(name = "purchase_decided_by_staff_id", length = 36)
+  private UUID purchaseDecidedByStaffId;
+
   @JdbcTypeCode(SqlTypes.TIMESTAMP)
-  @Column(name = "arc_creation_granted_at")
-  private Instant arcCreationGrantedAt;
+  @Column(name = "purchase_decided_at")
+  private Instant purchaseDecidedAt;
 
   @JdbcTypeCode(SqlTypes.TIMESTAMP)
   @Column(name = "matched_at")
@@ -90,24 +88,22 @@ public class Visit extends BaseEntity {
 
   protected Visit() {}
 
-  private Visit(UUID id, UUID customerId, UUID storeId, String waitingNumber) {
+  private Visit(UUID id, UUID customerId, UUID storeId) {
     this.id = id;
     this.customerId = customerId;
     this.storeId = storeId;
-    this.waitingNumber = waitingNumber;
     this.status = VisitStatus.ONBOARDING;
+    this.purchaseDecision = PurchaseDecision.PENDING;
   }
 
-  public static Visit create(UUID customerId, UUID storeId, String waitingNumber) {
+  public static Visit create(UUID customerId, UUID storeId) {
     requireUuid(customerId, "고객 ID");
     requireUuid(storeId, "매장 ID");
-    return new Visit(UUID.randomUUID(), customerId, storeId, requireText(waitingNumber, "대기번호"));
+    return new Visit(UUID.randomUUID(), customerId, storeId);
   }
 
   public void completeOnboarding(
-      ServiceLanguage serviceLanguage,
-      InteractionStyle interactionStyle,
-      String additionalRequest) {
+      LanguageCode serviceLanguage, InteractionStyle interactionStyle, String additionalRequest) {
     requireStatus(VisitStatus.ONBOARDING, "온보딩 중인 방문만 완료할 수 있습니다.");
     if (serviceLanguage == null) {
       throw new IllegalArgumentException("서비스 이용 언어는 null일 수 없습니다.");
@@ -121,52 +117,34 @@ public class Visit extends BaseEntity {
     this.status =
         interactionStyle == InteractionStyle.STAFF_RECOMMENDATION
             ? VisitStatus.WAITING_FOR_STAFF
-            : VisitStatus.SELF_GUIDED;
+            : VisitStatus.ACTIVE;
   }
 
-  public void matchForRecommendation(UUID staffId, UUID storeDeviceId, Instant matchedAt) {
-    requireStatus(VisitStatus.WAITING_FOR_STAFF, "직원 추천 대기 중인 방문만 매칭할 수 있습니다.");
+  public void assignStaff(UUID staffId, Instant matchedAt) {
+    if (status != VisitStatus.WAITING_FOR_STAFF
+        && !(status == VisitStatus.ACTIVE && this.staffId == null)) {
+      throw new IllegalStateException("직원을 연결할 수 있는 방문 상태가 아닙니다.");
+    }
     requireUuid(staffId, "직원 ID");
-    requireUuid(storeDeviceId, "단말 ID");
     requireInstant(matchedAt, "매칭 시각");
     this.staffId = staffId;
-    this.storeDeviceId = storeDeviceId;
     this.matchedAt = matchedAt;
-    this.status = VisitStatus.MATCHED;
+    this.status = VisitStatus.ACTIVE;
   }
 
-  public void startArcForSelfGuided(UUID staffId, UUID storeDeviceId, Instant grantedAt) {
-    requireStatus(VisitStatus.SELF_GUIDED, "혼자 보기 상태인 방문만 직원 연결을 시작할 수 있습니다.");
-    requireUuid(staffId, "직원 ID");
-    requireUuid(storeDeviceId, "단말 ID");
-    requireInstant(grantedAt, "Arc 생성 권한 부여 시각");
-    this.staffId = staffId;
-    this.storeDeviceId = storeDeviceId;
-    this.matchedAt = grantedAt;
-    this.arcCreationGrantedAt = grantedAt;
-    this.status = VisitStatus.ARC_IN_PROGRESS;
+  public void confirmPurchase(UUID staffId, Instant decidedAt) {
+    decidePurchase(staffId, PurchaseDecision.PURCHASED, VisitStatus.ARC_IN_PROGRESS, decidedAt);
   }
 
-  public void grantArcCreation(Instant grantedAt) {
-    requireStatus(VisitStatus.MATCHED, "매칭된 방문만 Arc 생성 권한을 받을 수 있습니다.");
-    requireInstant(grantedAt, "Arc 생성 권한 부여 시각");
-    this.arcCreationGrantedAt = grantedAt;
-    this.status = VisitStatus.ARC_IN_PROGRESS;
-  }
-
-  public boolean isArcCreationGranted() {
-    return arcCreationGrantedAt != null;
-  }
-
-  public void completeWithoutPurchase(Instant completedAt) {
-    requireStatus(VisitStatus.SELF_GUIDED, "혼자 보기 상태인 방문만 구매 없이 종료할 수 있습니다.");
-    requireInstant(completedAt, "방문 종료 시각");
-    this.completedAt = completedAt;
-    this.status = VisitStatus.COMPLETED;
+  public void confirmNoPurchase(UUID staffId, Instant decidedAt) {
+    decidePurchase(
+        staffId, PurchaseDecision.NOT_PURCHASED, VisitStatus.VISIT_MEMORY_IN_PROGRESS, decidedAt);
   }
 
   public void complete(Instant completedAt) {
-    requireStatus(VisitStatus.ARC_IN_PROGRESS, "Arc 진행 중인 방문만 종료할 수 있습니다.");
+    if (status != VisitStatus.ARC_IN_PROGRESS && status != VisitStatus.VISIT_MEMORY_IN_PROGRESS) {
+      throw new IllegalStateException("Arc 또는 Visit Memory 진행 중인 방문만 종료할 수 있습니다.");
+    }
     requireInstant(completedAt, "방문 종료 시각");
     this.completedAt = completedAt;
     this.status = VisitStatus.COMPLETED;
@@ -197,15 +175,7 @@ public class Visit extends BaseEntity {
     return staffId;
   }
 
-  public UUID getStoreDeviceId() {
-    return storeDeviceId;
-  }
-
-  public String getWaitingNumber() {
-    return waitingNumber;
-  }
-
-  public ServiceLanguage getServiceLanguage() {
+  public LanguageCode getServiceLanguage() {
     return serviceLanguage;
   }
 
@@ -221,8 +191,16 @@ public class Visit extends BaseEntity {
     return status;
   }
 
-  public Instant getArcCreationGrantedAt() {
-    return arcCreationGrantedAt;
+  public PurchaseDecision getPurchaseDecision() {
+    return purchaseDecision;
+  }
+
+  public UUID getPurchaseDecidedByStaffId() {
+    return purchaseDecidedByStaffId;
+  }
+
+  public Instant getPurchaseDecidedAt() {
+    return purchaseDecidedAt;
   }
 
   public Instant getMatchedAt() {
@@ -241,6 +219,20 @@ public class Visit extends BaseEntity {
     return version;
   }
 
+  private void decidePurchase(
+      UUID staffId, PurchaseDecision decision, VisitStatus nextStatus, Instant decidedAt) {
+    requireStatus(VisitStatus.ACTIVE, "진행 중인 방문만 구매 여부를 확정할 수 있습니다.");
+    if (!Objects.equals(this.staffId, staffId)) {
+      throw new IllegalArgumentException("담당 직원만 구매 여부를 확정할 수 있습니다.");
+    }
+    requireUuid(staffId, "직원 ID");
+    requireInstant(decidedAt, "구매 판단 시각");
+    this.purchaseDecision = decision;
+    this.purchaseDecidedByStaffId = staffId;
+    this.purchaseDecidedAt = decidedAt;
+    this.status = nextStatus;
+  }
+
   private void requireStatus(VisitStatus expected, String message) {
     if (status != expected) {
       throw new IllegalStateException(message);
@@ -257,13 +249,6 @@ public class Visit extends BaseEntity {
     if (value == null) {
       throw new IllegalArgumentException(fieldName + "은 null일 수 없습니다.");
     }
-  }
-
-  private static String requireText(String value, String fieldName) {
-    if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException(fieldName + "은 비어 있을 수 없습니다.");
-    }
-    return value.trim();
   }
 
   private static String normalizeNullable(String value) {
