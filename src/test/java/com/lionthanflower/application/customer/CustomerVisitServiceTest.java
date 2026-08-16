@@ -9,8 +9,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.customer.entity.Customer;
 import com.lionthanflower.domain.store.entity.Store;
+import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
 import com.lionthanflower.global.error.BusinessException;
@@ -108,4 +110,98 @@ class CustomerVisitServiceTest {
         .isEqualTo(CommonErrorCode.INTERNAL_SERVER_ERROR);
   }
 
+  @Test
+  void 직원_추천_온보딩은_고객_이름을_저장하고_대기_상태로_전환한다() {
+    Customer customer = Customer.create(tokenManager.hash("known-token"));
+    Visit visit = Visit.create(customer.getId(), store.getId());
+    when(customerRepository.findByTokenHash(tokenManager.hash("known-token")))
+        .thenReturn(Optional.of(customer));
+    when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+
+    CustomerVisitService.OnboardingResult result =
+        service.progressOnboarding(
+            visit.getId(),
+            "known-token",
+            new CustomerVisitService.OnboardingCommand(
+                "홍길동", LanguageCode.EN, InteractionStyle.STAFF_RECOMMENDATION, "가방 추천"));
+
+    assertThat(customer.getName()).isEqualTo("홍길동");
+    assertThat(result.visitId()).isEqualTo(visit.getId());
+    assertThat(result.status()).isEqualTo(VisitStatus.WAITING_FOR_STAFF);
+  }
+
+  @Test
+  void 셀프_이용_온보딩은_ACTIVE_상태로_전환한다() {
+    Customer customer = Customer.create(tokenManager.hash("known-token"));
+    Visit visit = Visit.create(customer.getId(), store.getId());
+    when(customerRepository.findByTokenHash(tokenManager.hash("known-token")))
+        .thenReturn(Optional.of(customer));
+    when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+
+    CustomerVisitService.OnboardingResult result =
+        service.progressOnboarding(
+            visit.getId(),
+            "known-token",
+            new CustomerVisitService.OnboardingCommand(
+                "홍길동", LanguageCode.JA, InteractionStyle.SELF_GUIDED, null));
+
+    assertThat(result.status()).isEqualTo(VisitStatus.ACTIVE);
+  }
+
+  @Test
+  void 고객_토큰이_없으면_온보딩을_진행할_수_없다() {
+    Visit visit = Visit.create(java.util.UUID.randomUUID(), store.getId());
+
+    assertThatThrownBy(
+            () ->
+                service.progressOnboarding(
+                    visit.getId(),
+                    null,
+                    new CustomerVisitService.OnboardingCommand(
+                        "홍길동", LanguageCode.EN, InteractionStyle.SELF_GUIDED, null)))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).errorCode())
+        .isEqualTo(CommonErrorCode.INVALID_INPUT_VALUE);
+  }
+
+  @Test
+  void 다른_고객의_방문은_찾을_수_없는_것처럼_처리한다() {
+    Customer customer = Customer.create(tokenManager.hash("known-token"));
+    Visit visit = Visit.create(java.util.UUID.randomUUID(), store.getId());
+    when(customerRepository.findByTokenHash(tokenManager.hash("known-token")))
+        .thenReturn(Optional.of(customer));
+    when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+
+    assertThatThrownBy(
+            () ->
+                service.progressOnboarding(
+                    visit.getId(),
+                    "known-token",
+                    new CustomerVisitService.OnboardingCommand(
+                        "홍길동", LanguageCode.EN, InteractionStyle.SELF_GUIDED, null)))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).errorCode())
+        .isEqualTo(CommonErrorCode.NOT_FOUND);
+  }
+
+  @Test
+  void 이미_온보딩이_끝난_방문은_다시_진행할_수_없다() {
+    Customer customer = Customer.create(tokenManager.hash("known-token"));
+    Visit visit = Visit.create(customer.getId(), store.getId());
+    visit.completeOnboarding(LanguageCode.EN, InteractionStyle.SELF_GUIDED, null);
+    when(customerRepository.findByTokenHash(tokenManager.hash("known-token")))
+        .thenReturn(Optional.of(customer));
+    when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+
+    assertThatThrownBy(
+            () ->
+                service.progressOnboarding(
+                    visit.getId(),
+                    "known-token",
+                    new CustomerVisitService.OnboardingCommand(
+                        "홍길동", LanguageCode.EN, InteractionStyle.SELF_GUIDED, null)))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).errorCode())
+        .isEqualTo(CommonErrorCode.INVALID_INPUT_VALUE);
+  }
 }
