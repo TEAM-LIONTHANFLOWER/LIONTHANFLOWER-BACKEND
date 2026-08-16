@@ -26,3 +26,7 @@ logging:
   level:
     root: INFO
     com.lionthanflower: INFO
+
+app:
+  customer-session:
+    cookie-secure: ${CUSTOMER_SESSION_COOKIE_SECURE:true}
