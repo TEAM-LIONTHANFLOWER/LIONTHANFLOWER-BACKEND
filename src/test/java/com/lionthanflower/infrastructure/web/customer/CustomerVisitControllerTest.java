@@ -1,6 +1,7 @@
 // 고객 서비스 진입과 온보딩 진행 HTTP API를 검증하는 테스트
 package com.lionthanflower.infrastructure.web.customer;
 
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -30,7 +31,11 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(CustomerVisitController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)
-@TestPropertySource(properties = "app.customer-api-security.enabled=false")
+@TestPropertySource(
+    properties = {
+      "app.customer-api-security.enabled=false",
+      "app.customer-session.cookie-secure=true"
+    })
 class CustomerVisitControllerTest {
 
   @Autowired private MockMvc mockMvc;
@@ -49,7 +54,16 @@ class CustomerVisitControllerTest {
         .perform(post("/api/customers/visits"))
         .andExpect(status().isCreated())
         .andExpect(
-            header().string(HttpHeaders.SET_COOKIE, containsString("customer_token=issued-token")))
+            header()
+                .string(
+                    HttpHeaders.SET_COOKIE,
+                    allOf(
+                        containsString("customer_token=issued-token"),
+                        containsString("Path=/"),
+                        containsString("Max-Age=604800"),
+                        containsString("Secure"),
+                        containsString("HttpOnly"),
+                        containsString("SameSite=Lax"))))
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.visitId").value(visitId.toString()))
         .andExpect(jsonPath("$.data.customerName").isEmpty())
