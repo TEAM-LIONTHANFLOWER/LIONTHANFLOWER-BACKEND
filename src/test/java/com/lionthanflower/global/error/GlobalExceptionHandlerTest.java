@@ -18,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,6 +46,14 @@ class GlobalExceptionHandlerTest {
         .andExpect(jsonPath("$.error.code").value("TEST-409"))
         .andExpect(jsonPath("$.error.message").value("테스트 충돌이 발생했습니다."))
         .andExpect(jsonPath("$.error.fieldErrors").isEmpty());
+  }
+
+  @Test
+  void 낙관적_락_충돌을_공통_409_응답으로_변환한다() throws Exception {
+    mockMvc
+        .perform(get("/test/optimistic-lock"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("COMMON-409"));
   }
 
   @Test
@@ -182,6 +191,11 @@ class GlobalExceptionHandlerTest {
     @GetMapping("/business")
     void business() {
       throw new BusinessException(TestErrorCode.CONFLICT);
+    }
+
+    @GetMapping("/optimistic-lock")
+    void optimisticLock() {
+      throw new ObjectOptimisticLockingFailureException("Visit", "동시 수정 충돌");
     }
 
     @PostMapping(value = "/validation", consumes = MediaType.APPLICATION_JSON_VALUE)
