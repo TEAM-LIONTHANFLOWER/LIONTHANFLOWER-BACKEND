@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.lionthanflower.application.studio.StudioFrameService;
 import com.lionthanflower.domain.myself.entity.FrameType;
+import com.lionthanflower.global.config.CustomerApiSecurityConfig;
 import com.lionthanflower.global.error.GlobalExceptionHandler;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -15,14 +16,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(CustomerStudioFrameController.class)
-@AutoConfigureMockMvc(addFilters = false)
-@Import(GlobalExceptionHandler.class)
-@TestPropertySource(properties = "app.customer-api-security.enabled=false")
+@AutoConfigureMockMvc
+@Import({GlobalExceptionHandler.class, CustomerApiSecurityConfig.class})
 class CustomerStudioFrameControllerTest {
 
   @Autowired private MockMvc mockMvc;
