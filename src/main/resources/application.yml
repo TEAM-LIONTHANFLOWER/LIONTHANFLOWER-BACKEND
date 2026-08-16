@@ -20,6 +20,15 @@ server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
 
+app:
+  customer-api-security:
+    enabled: ${CUSTOMER_API_SECURITY_ENABLED:true}
+  onboarding:
+    store-code: ${ONBOARDING_STORE_CODE:MCM-SEOUL}
+  customer-session:
+    cookie-secure: ${CUSTOMER_SESSION_COOKIE_SECURE:false}
+    cookie-max-age: ${CUSTOMER_SESSION_COOKIE_MAX_AGE:604800}
+
 management:
   endpoints:
     web:
