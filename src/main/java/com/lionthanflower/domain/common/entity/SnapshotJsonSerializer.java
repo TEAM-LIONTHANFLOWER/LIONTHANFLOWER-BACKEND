@@ -20,4 +20,15 @@ public final class SnapshotJsonSerializer {
       throw new IllegalArgumentException("입력 스냅샷을 JSON으로 변환할 수 없습니다.", exception);
     }
   }
+
+  public static <T> T deserialize(String json, Class<T> type) {
+    if (json == null || json.isBlank() || type == null) {
+      throw new IllegalArgumentException("JSON과 변환 타입은 필수입니다.");
+    }
+    try {
+      return OBJECT_MAPPER.readValue(json, type);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalArgumentException("JSON을 요청한 타입으로 변환할 수 없습니다.", exception);
+    }
+  }
 }
