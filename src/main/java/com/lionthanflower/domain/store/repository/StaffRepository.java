@@ -4,10 +4,12 @@ package com.lionthanflower.domain.store.repository;
 import com.lionthanflower.domain.store.entity.Staff;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface StaffRepository extends JpaRepository<Staff, UUID> {
 
+  @EntityGraph(attributePaths = "languages")
   Optional<Staff> findByTokenHash(String tokenHash);
 
   boolean existsByTokenHash(String tokenHash);
