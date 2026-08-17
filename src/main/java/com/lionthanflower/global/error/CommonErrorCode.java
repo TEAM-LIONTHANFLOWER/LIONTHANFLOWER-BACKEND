@@ -4,6 +4,7 @@ package com.lionthanflower.global.error;
 import org.springframework.http.HttpStatus;
 
 public enum CommonErrorCode implements ErrorCode {
+  UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "COMMON-401", "인증이 필요합니다."),
   INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "COMMON-400", "요청 값이 올바르지 않습니다."),
   CONFLICT(HttpStatus.CONFLICT, "COMMON-409", "요청한 리소스가 다른 요청에 의해 변경되었습니다."),
   NOT_FOUND(HttpStatus.NOT_FOUND, "COMMON-404", "요청한 리소스를 찾을 수 없습니다."),

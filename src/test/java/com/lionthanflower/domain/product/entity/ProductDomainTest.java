@@ -14,11 +14,7 @@ class ProductDomainTest {
     Product product = Product.create("MCM-BAG-001", "Stark Backpack", ProductCategory.BAG);
     ProductVariant variant =
         ProductVariant.create(
-            product.getId(),
-            "MCM-BAG-001-BLACK-M",
-            "products/stark-black-m.png",
-            ProductColor.BLACK,
-            ProductOption.M);
+            product.getId(), "MCM-BAG-001-BLACK-M", ProductColor.BLACK, ProductOption.M);
 
     assertThat(product.getCategory()).isEqualTo(ProductCategory.BAG);
     assertThat(variant.getProductId()).isEqualTo(product.getId());
@@ -29,9 +25,7 @@ class ProductDomainTest {
   @Test
   void Variant는_제품_ID가_필요하다() {
     assertThatThrownBy(
-            () ->
-                ProductVariant.create(
-                    null, "VARIANT-001", "products/001.png", ProductColor.WHITE, ProductOption.S))
+            () -> ProductVariant.create(null, "VARIANT-001", ProductColor.WHITE, ProductOption.S))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("제품 ID는 null일 수 없습니다.");
   }
@@ -43,16 +37,12 @@ class ProductDomainTest {
         .hasMessage("제품 카테고리는 null일 수 없습니다.");
 
     assertThatThrownBy(
-            () ->
-                ProductVariant.create(
-                    UUID.randomUUID(), "VARIANT-001", "products/001.png", null, ProductOption.S))
+            () -> ProductVariant.create(UUID.randomUUID(), "VARIANT-001", null, ProductOption.S))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("제품 컬러는 null일 수 없습니다.");
 
     assertThatThrownBy(
-            () ->
-                ProductVariant.create(
-                    UUID.randomUUID(), "VARIANT-001", "products/001.png", ProductColor.WHITE, null))
+            () -> ProductVariant.create(UUID.randomUUID(), "VARIANT-001", ProductColor.WHITE, null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("제품 옵션은 null일 수 없습니다.");
   }
