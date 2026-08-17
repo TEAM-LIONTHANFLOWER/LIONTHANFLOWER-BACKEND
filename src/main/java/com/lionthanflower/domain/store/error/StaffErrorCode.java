@@ -7,7 +7,8 @@ import org.springframework.http.HttpStatus;
 public enum StaffErrorCode implements ErrorCode {
   INVALID_STORE_ID(HttpStatus.BAD_REQUEST, "STAFF-400-1", "존재하지 않는 매장 ID입니다."),
   INVALID_LANGUAGE_CODE(HttpStatus.BAD_REQUEST, "STAFF-400-2", "지원하지 않는 언어 코드가 포함되어 있습니다."),
-  PROFILE_ALREADY_EXISTS(HttpStatus.CONFLICT, "STAFF-409", "이미 프로필이 등록된 직원입니다.");
+  PROFILE_ALREADY_EXISTS(HttpStatus.CONFLICT, "STAFF-409", "이미 프로필이 등록된 직원입니다."),
+  UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "STAFF-401", "인증되지 않은 요청입니다.");
 
   private final HttpStatus status;
   private final String code;
