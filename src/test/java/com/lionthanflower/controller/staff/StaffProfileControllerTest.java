@@ -1,6 +1,7 @@
 // 직원 프로필 등록 API를 검증하는 테스트
 package com.lionthanflower.controller.staff;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,7 +25,9 @@ import com.lionthanflower.domain.store.error.StaffErrorCode;
 import com.lionthanflower.global.config.CustomerApiSecurityConfig;
 import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.global.error.GlobalExceptionHandler;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.Cookie;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
@@ -204,5 +207,15 @@ class StaffProfileControllerTest {
         .perform(get("/api/staff/me/profile"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("STAFF-401"));
+  }
+
+  @Test
+  void 프로필_조회_API에_OpenAPI_설명이_있다() throws NoSuchMethodException {
+    Method method = StaffProfileController.class.getMethod("getMyProfile", Staff.class);
+
+    Operation operation = method.getAnnotation(Operation.class);
+
+    assertThat(operation).isNotNull();
+    assertThat(operation.summary()).isEqualTo("직원 프로필 조회");
   }
 }
