@@ -73,8 +73,9 @@ class CustomerArcRepositoryTest extends PostgreSqlContainerSupport {
         visitId,
         TIMESTAMP,
         TIMESTAMP);
-    Instant sharedAt = Instant.parse("2026-08-15T12:00:00Z");
-    Instant finalizedAt = status == ArcStatus.FINALIZED ? sharedAt.plusSeconds(60) : null;
+    Timestamp sharedAt = Timestamp.from(Instant.parse("2026-08-15T12:00:00Z"));
+    Timestamp finalizedAt =
+        status == ArcStatus.FINALIZED ? Timestamp.from(sharedAt.toInstant().plusSeconds(60)) : null;
     jdbcTemplate.update(
         "insert into arcs (id, visit_id, purchase_id, customer_id, created_by_staff_id,"
             + " arc_number, status, shared_at, finalized_at, created_at, updated_at)"
