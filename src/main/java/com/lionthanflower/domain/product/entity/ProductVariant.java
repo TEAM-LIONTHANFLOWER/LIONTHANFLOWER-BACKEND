@@ -27,9 +27,6 @@ public class ProductVariant extends BaseEntity {
   @Column(name = "external_variant_code", nullable = false, unique = true, length = 100)
   private String externalVariantCode;
 
-  @Column(name = "image_object_key", nullable = false, length = 1024)
-  private String imageObjectKey;
-
   @Enumerated(EnumType.STRING)
   @Column(name = "color", nullable = false, length = 40)
   private ProductColor color;
@@ -44,23 +41,17 @@ public class ProductVariant extends BaseEntity {
       UUID id,
       UUID productId,
       String externalVariantCode,
-      String imageObjectKey,
       ProductColor color,
       ProductOption option) {
     this.id = id;
     this.productId = productId;
     this.externalVariantCode = externalVariantCode;
-    this.imageObjectKey = imageObjectKey;
     this.color = color;
     this.option = option;
   }
 
   public static ProductVariant create(
-      UUID productId,
-      String externalVariantCode,
-      String imageObjectKey,
-      ProductColor color,
-      ProductOption option) {
+      UUID productId, String externalVariantCode, ProductColor color, ProductOption option) {
     requireUuid(productId, "제품 ID");
     if (color == null) {
       throw new IllegalArgumentException("제품 컬러는 null일 수 없습니다.");
@@ -72,7 +63,6 @@ public class ProductVariant extends BaseEntity {
         UUID.randomUUID(),
         productId,
         requireText(externalVariantCode, "외부 Variant 코드"),
-        requireText(imageObjectKey, "제품 이미지 객체 키"),
         color,
         option);
   }
@@ -87,10 +77,6 @@ public class ProductVariant extends BaseEntity {
 
   public String getExternalVariantCode() {
     return externalVariantCode;
-  }
-
-  public String getImageObjectKey() {
-    return imageObjectKey;
   }
 
   public ProductColor getColor() {

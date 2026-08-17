@@ -42,6 +42,9 @@ public class Arc extends BaseEntity {
   @Column(name = "created_by_staff_id", nullable = false, length = 36)
   private UUID createdByStaffId;
 
+  @Column(name = "arc_number")
+  private Integer arcNumber;
+
   @JdbcTypeCode(SqlTypes.CHAR)
   @Column(name = "shared_revision_id", length = 36)
   private UUID sharedRevisionId;
@@ -81,10 +84,28 @@ public class Arc extends BaseEntity {
     return new Arc(UUID.randomUUID(), visitId, purchaseId, customerId, createdByStaffId);
   }
 
-  public void share(ArcRevision revision, Instant sharedAt) {
+  public void shareFirst(ArcRevision revision, Instant sharedAt, int arcNumber) {
+    if (status != ArcStatus.DRAFT) {
+      throw new IllegalStateException("초안 Arc만 최초 공유할 수 있습니다.");
+    }
+    if (arcNumber < 1) {
+      throw new IllegalArgumentException("Arc 번호는 1 이상이어야 합니다.");
+    }
+    shareRevision(revision, sharedAt);
+    this.arcNumber = arcNumber;
+  }
+
+  public void reshare(ArcRevision revision, Instant sharedAt) {
     if (status == ArcStatus.FINALIZED) {
       throw new IllegalStateException("최종 저장된 Arc는 다시 공유할 수 없습니다.");
     }
+    if (status != ArcStatus.SHARED || arcNumber == null) {
+      throw new IllegalStateException("공유된 Arc만 다시 공유할 수 있습니다.");
+    }
+    shareRevision(revision, sharedAt);
+  }
+
+  private void shareRevision(ArcRevision revision, Instant sharedAt) {
     if (revision == null || !id.equals(revision.getArcId())) {
       throw new IllegalArgumentException("같은 Arc의 리비전만 공유할 수 있습니다.");
     }
@@ -125,6 +146,10 @@ public class Arc extends BaseEntity {
 
   public UUID getCreatedByStaffId() {
     return createdByStaffId;
+  }
+
+  public Integer getArcNumber() {
+    return arcNumber;
   }
 
   public UUID getSharedRevisionId() {

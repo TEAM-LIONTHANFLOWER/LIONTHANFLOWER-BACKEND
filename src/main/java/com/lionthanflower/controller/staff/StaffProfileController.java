@@ -9,6 +9,7 @@ import com.lionthanflower.domain.store.entity.Staff;
 import com.lionthanflower.domain.store.error.StaffErrorCode;
 import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +41,7 @@ public class StaffProfileController {
     this.cookieMaxAgeSeconds = cookieMaxAgeSeconds;
   }
 
+  @Operation(summary = "직원 프로필 등록", description = "근무 매장과 구사 언어를 등록하고 직원 인증 쿠키를 발급합니다.")
   @PostMapping("/api/staff/me/profile")
   public ResponseEntity<ApiResponse<?>> register(
       @Valid @RequestBody StaffProfileRegisterRequest request,
@@ -61,6 +63,7 @@ public class StaffProfileController {
         .body(ApiResponse.success(result.profile()));
   }
 
+  @Operation(summary = "직원 프로필 조회", description = "staffToken 쿠키로 인증된 직원의 프로필을 조회합니다.")
   @GetMapping("/api/staff/me/profile")
   public ApiResponse<StaffProfileResponse> getMyProfile(@AuthenticationPrincipal Staff staff) {
     if (staff == null) {
