@@ -1,12 +1,18 @@
-// 직원의 매장에 속한 현재 방문 고객 목록을 조회하는 서비스
+// 직원의 현재 방문 고객 조회와 직원 추천 고객 매칭을 처리하는 서비스
 package com.lionthanflower.application.staff;
 
+import com.lionthanflower.application.staff.dto.StaffVisitAssignmentResponse;
 import com.lionthanflower.application.staff.dto.VisitSummaryResponse;
 import com.lionthanflower.domain.customer.entity.Customer;
+import com.lionthanflower.domain.store.entity.Staff;
+import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
+import com.lionthanflower.domain.visit.error.VisitErrorCode;
+import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
 import com.lionthanflower.infrastructure.persistence.VisitRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,5 +47,22 @@ public class StaffVisitService {
     return visits.stream()
         .map(visit -> VisitSummaryResponse.of(visit, customerNames.get(visit.getCustomerId())))
         .toList();
+  }
+
+  @Transactional
+  public StaffVisitAssignmentResponse assignVisit(UUID visitId, Staff staff) {
+    Visit visit =
+        visitRepository
+            .findByIdAndStoreId(visitId, staff.getStoreId())
+            .orElseThrow(() -> new BusinessException(VisitErrorCode.NOT_FOUND));
+
+    if (visit.getStatus() != VisitStatus.WAITING_FOR_STAFF
+        || visit.getInteractionStyle() != InteractionStyle.STAFF_RECOMMENDATION
+        || visit.getStaffId() != null) {
+      throw new BusinessException(VisitErrorCode.NOT_ASSIGNABLE);
+    }
+
+    visit.assignStaff(staff.getId(), Instant.now());
+    return StaffVisitAssignmentResponse.from(visit);
   }
 }

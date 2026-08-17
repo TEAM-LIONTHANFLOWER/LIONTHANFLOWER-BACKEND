@@ -5,9 +5,12 @@ import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface VisitRepository extends JpaRepository<Visit, UUID> {
   List<Visit> findByStoreIdAndStatusNotIn(UUID storeId, Collection<VisitStatus> excludedStatuses);
+
+  Optional<Visit> findByIdAndStoreId(UUID id, UUID storeId);
 }
