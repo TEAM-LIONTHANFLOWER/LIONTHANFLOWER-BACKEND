@@ -20,7 +20,7 @@ class ArcTest {
     ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
     revision.complete("{\"title\":\"My MCM\"}", Instant.parse("2026-08-15T12:00:00Z"));
 
-    arc.share(revision, Instant.parse("2026-08-15T12:01:00Z"));
+    arc.shareFirst(revision, Instant.parse("2026-08-15T12:01:00Z"), 1);
 
     assertThat(arc.getStatus()).isEqualTo(ArcStatus.SHARED);
     assertThat(arc.getSharedRevisionId()).isEqualTo(revision.getId());
@@ -40,6 +40,32 @@ class ArcTest {
   }
 
   @Test
+  void 최초_공유_순번은_재공유와_최종_저장에서도_유지된다() {
+    UUID staffId = UUID.randomUUID();
+    Arc arc = Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), staffId);
+    ArcRevision first = readyRevision(arc, 1, staffId);
+    ArcRevision second = readyRevision(arc, 2, staffId);
+
+    arc.shareFirst(first, Instant.parse("2026-08-15T12:01:00Z"), 2);
+    arc.reshare(second, Instant.parse("2026-08-15T12:02:00Z"));
+    arc.finalizeSharedRevision(Instant.parse("2026-08-15T12:03:00Z"));
+
+    assertThat(arc.getArcNumber()).isEqualTo(2);
+    assertThat(arc.getFinalRevisionId()).isEqualTo(second.getId());
+  }
+
+  @Test
+  void Arc_순번은_1_이상이어야_한다() {
+    Arc arc =
+        Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+    ArcRevision revision = readyRevision(arc, 1, arc.getCreatedByStaffId());
+
+    assertThatThrownBy(() -> arc.shareFirst(revision, Instant.now(), 0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Arc 번호는 1 이상이어야 합니다.");
+  }
+
+  @Test
   void 생성_실패한_리비전은_공유할_수_없다() {
     Arc arc =
         Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
@@ -47,7 +73,7 @@ class ArcTest {
         ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", arc.getCreatedByStaffId());
     revision.fail("OPENAI_UNAVAILABLE");
 
-    assertThatThrownBy(() -> arc.share(revision, Instant.now()))
+    assertThatThrownBy(() -> arc.shareFirst(revision, Instant.now(), 1))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("생성이 완료된 Arc 리비전만 공유할 수 있습니다.");
   }
@@ -61,7 +87,7 @@ class ArcTest {
             fixture.arc().getId(), 2, snapshot(), "arc-v1", fixture.arc().getCreatedByStaffId());
     next.complete("{\"title\":\"Next\"}", Instant.now());
 
-    assertThatThrownBy(() -> fixture.arc().share(next, Instant.now()))
+    assertThatThrownBy(() -> fixture.arc().reshare(next, Instant.now()))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("최종 저장된 Arc는 다시 공유할 수 없습니다.");
   }
@@ -87,7 +113,7 @@ class ArcTest {
         ArcRevision.start(UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
     otherRevision.complete("{\"title\":\"Other\"}", Instant.now());
 
-    assertThatThrownBy(() -> arc.share(otherRevision, Instant.now()))
+    assertThatThrownBy(() -> arc.shareFirst(otherRevision, Instant.now(), 1))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("같은 Arc의 리비전만 공유할 수 있습니다.");
   }
@@ -139,8 +165,19 @@ class ArcTest {
     Arc arc = Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), staffId);
     ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
     revision.complete("{\"title\":\"My MCM\"}", Instant.parse("2026-08-15T12:00:00Z"));
-    arc.share(revision, Instant.parse("2026-08-15T12:01:00Z"));
+    arc.shareFirst(revision, Instant.parse("2026-08-15T12:01:00Z"), 1);
     return new ArcAndRevision(arc, revision);
+  }
+
+  private ArcRevision readyRevision(Arc arc, int revisionNumber, UUID staffId) {
+    ArcRevision revision =
+        ArcRevision.start(arc.getId(), revisionNumber, snapshot(), "arc-v1", staffId);
+    revision.complete(
+        """
+        {"momentSummary":"요약","preferences":["선호"],"momentToRemember":"기억"}
+        """,
+        Instant.parse("2026-08-15T12:00:00Z"));
+    return revision;
   }
 
   private record ArcAndRevision(Arc arc, ArcRevision revision) {}

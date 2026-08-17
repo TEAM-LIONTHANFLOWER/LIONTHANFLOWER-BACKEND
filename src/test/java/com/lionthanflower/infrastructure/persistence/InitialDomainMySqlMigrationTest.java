@@ -39,6 +39,12 @@ class InitialDomainMySqlMigrationTest extends MySqlContainerSupport {
     assertThat(countTables("store_devices")).isZero();
   }
 
+  @Test
+  void 고객별_Arc_번호_컬럼과_유일_제약이_생성된다() throws SQLException {
+    assertThat(countColumns("arcs", "arc_number")).isEqualTo(1);
+    assertThat(countConstraints("arcs", "uk_arcs_customer_arc_number")).isEqualTo(1);
+  }
+
   private int countTables(String... tableNames) throws SQLException {
     String placeholders = String.join(",", java.util.Collections.nCopies(tableNames.length, "?"));
     String sql =
@@ -51,6 +57,36 @@ class InitialDomainMySqlMigrationTest extends MySqlContainerSupport {
       for (int index = 0; index < tableNames.length; index++) {
         statement.setString(index + 1, tableNames[index]);
       }
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getInt(1);
+      }
+    }
+  }
+
+  private int countColumns(String tableName, String columnName) throws SQLException {
+    String sql =
+        "select count(*) from information_schema.columns "
+            + "where table_schema = database() and table_name = ? and column_name = ?";
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setString(1, tableName);
+      statement.setString(2, columnName);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getInt(1);
+      }
+    }
+  }
+
+  private int countConstraints(String tableName, String constraintName) throws SQLException {
+    String sql =
+        "select count(*) from information_schema.table_constraints "
+            + "where table_schema = database() and table_name = ? and constraint_name = ?";
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setString(1, tableName);
+      statement.setString(2, constraintName);
       try (ResultSet resultSet = statement.executeQuery()) {
         resultSet.next();
         return resultSet.getInt(1);

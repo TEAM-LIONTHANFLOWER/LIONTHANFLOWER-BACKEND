@@ -43,6 +43,12 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
   }
 
   @Test
+  void 고객별_Arc_번호_컬럼과_유일_제약이_생성된다() throws SQLException {
+    assertThat(countColumns("arcs", "arc_number")).isEqualTo(1);
+    assertThat(countConstraints("arcs", "uk_arcs_customer_arc_number")).isEqualTo(1);
+  }
+
+  @Test
   void 방문당_구매와_Arc와_Visit_Memory는_각각_하나만_저장할_수_있다() throws SQLException {
     PersistenceFixture fixture = PersistenceFixture.insertRequiredRows(dataSource);
 
@@ -109,6 +115,36 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
       for (int index = 0; index < tableNames.length; index++) {
         statement.setString(index + 1, tableNames[index]);
       }
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getInt(1);
+      }
+    }
+  }
+
+  private int countColumns(String tableName, String columnName) throws SQLException {
+    String sql =
+        "select count(*) from information_schema.columns "
+            + "where table_schema = 'public' and table_name = ? and column_name = ?";
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setString(1, tableName);
+      statement.setString(2, columnName);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getInt(1);
+      }
+    }
+  }
+
+  private int countConstraints(String tableName, String constraintName) throws SQLException {
+    String sql =
+        "select count(*) from information_schema.table_constraints "
+            + "where table_schema = 'public' and table_name = ? and constraint_name = ?";
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setString(1, tableName);
+      statement.setString(2, constraintName);
       try (ResultSet resultSet = statement.executeQuery()) {
         resultSet.next();
         return resultSet.getInt(1);
@@ -186,7 +222,8 @@ final class PersistenceFixture {
     try (Connection connection = dataSource.getConnection()) {
       execute(
           connection,
-          "insert into arcs (id, visit_id, purchase_id, customer_id, created_by_staff_id, status, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)",
+          "insert into arcs (id, visit_id, purchase_id, customer_id, created_by_staff_id, status,"
+              + " created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)",
           id,
           targetVisitId,
           targetPurchaseId,
@@ -210,7 +247,9 @@ final class PersistenceFixture {
     try (Connection connection = dataSource.getConnection()) {
       execute(
           connection,
-          "insert into visit_memories (id, visit_id, customer_id, created_by_staff_id, input_snapshot, template_version, status, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "insert into visit_memories (id, visit_id, customer_id, created_by_staff_id,"
+              + " input_snapshot, template_version, status, created_at, updated_at) values (?, ?,"
+              + " ?, ?, ?, ?, ?, ?, ?)",
           UUID.randomUUID().toString(),
           visitId,
           customerId,
@@ -228,7 +267,9 @@ final class PersistenceFixture {
     try (Connection connection = dataSource.getConnection()) {
       execute(
           connection,
-          "insert into arc_revisions (id, arc_id, revision_number, input_snapshot, template_version, status, created_by_staff_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "insert into arc_revisions (id, arc_id, revision_number, input_snapshot,"
+              + " template_version, status, created_by_staff_id, created_at, updated_at) values (?,"
+              + " ?, ?, ?, ?, ?, ?, ?, ?)",
           revisionId,
           arcId,
           revisionNumber,
@@ -257,7 +298,8 @@ final class PersistenceFixture {
     try (Connection connection = dataSource.getConnection()) {
       execute(
           connection,
-          "insert into stores (id, name, code, country_code, created_at, updated_at) values (?, ?, ?, ?, ?, ?)",
+          "insert into stores (id, name, code, country_code, created_at, updated_at) values (?, ?,"
+              + " ?, ?, ?, ?)",
           storeId,
           "MCM HAUS",
           "mcm-haus-" + storeId,
@@ -266,7 +308,8 @@ final class PersistenceFixture {
           TIMESTAMP);
       execute(
           connection,
-          "insert into customers (id, name, token_hash, created_at, updated_at) values (?, ?, ?, ?, ?)",
+          "insert into customers (id, name, token_hash, created_at, updated_at) values (?, ?, ?, ?,"
+              + " ?)",
           customerId,
           null,
           "customer-token-hash-" + customerId,
@@ -274,7 +317,8 @@ final class PersistenceFixture {
           TIMESTAMP);
       execute(
           connection,
-          "insert into staff (id, store_id, name, token_hash, created_at, updated_at) values (?, ?, ?, ?, ?, ?)",
+          "insert into staff (id, store_id, name, token_hash, created_at, updated_at) values (?, ?,"
+              + " ?, ?, ?, ?)",
           staffId,
           storeId,
           "김회윤",
@@ -288,7 +332,10 @@ final class PersistenceFixture {
           "EN");
       execute(
           connection,
-          "insert into visits (id, customer_id, store_id, staff_id, service_language, interaction_style, additional_request, status, purchase_decision, purchase_decided_by_staff_id, purchase_decided_at, matched_at, version, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "insert into visits (id, customer_id, store_id, staff_id, service_language,"
+              + " interaction_style, additional_request, status, purchase_decision,"
+              + " purchase_decided_by_staff_id, purchase_decided_at, matched_at, version,"
+              + " created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           visitId,
           customerId,
           storeId,
