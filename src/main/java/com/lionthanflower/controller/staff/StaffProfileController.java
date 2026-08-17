@@ -19,12 +19,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class StaffProfileController {
   private static final String STAFF_TOKEN_COOKIE_NAME = "staffToken";
-  private static final Duration STAFF_TOKEN_MAX_AGE = Duration.ofDays(365);
 
   private final StaffProfileService staffProfileService;
+  private final boolean cookieSecure;
+  private final long cookieMaxAgeSeconds;
 
-  public StaffProfileController(StaffProfileService staffProfileService) {
+  public StaffProfileController(
+      StaffProfileService staffProfileService,
+      @org.springframework.beans.factory.annotation.Value(
+              "${app.staff-session.cookie-secure:false}")
+          boolean cookieSecure,
+      @org.springframework.beans.factory.annotation.Value(
+              "${app.staff-session.cookie-max-age:31536000}")
+          long cookieMaxAgeSeconds) {
     this.staffProfileService = staffProfileService;
+    this.cookieSecure = cookieSecure;
+    this.cookieMaxAgeSeconds = cookieMaxAgeSeconds;
   }
 
   @PostMapping("/api/staff/me/profile")
@@ -37,10 +47,10 @@ public class StaffProfileController {
     ResponseCookie cookie =
         ResponseCookie.from(STAFF_TOKEN_COOKIE_NAME, result.rawToken())
             .httpOnly(true)
-            .secure(true)
+            .secure(cookieSecure)
             .path("/")
             .sameSite("Lax")
-            .maxAge(STAFF_TOKEN_MAX_AGE)
+            .maxAge(Duration.ofSeconds(cookieMaxAgeSeconds))
             .build();
 
     return ResponseEntity.status(HttpStatus.OK)

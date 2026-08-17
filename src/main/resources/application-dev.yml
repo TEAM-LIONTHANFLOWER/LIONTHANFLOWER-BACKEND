@@ -25,3 +25,6 @@ springdoc:
 logging:
   level:
     com.lionthanflower: DEBUG
+app:
+  staff-session:
+    cookie-secure: false

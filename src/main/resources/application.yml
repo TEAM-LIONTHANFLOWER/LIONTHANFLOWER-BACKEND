@@ -28,6 +28,9 @@ app:
   customer-session:
     cookie-secure: ${CUSTOMER_SESSION_COOKIE_SECURE:false}
     cookie-max-age: ${CUSTOMER_SESSION_COOKIE_MAX_AGE:604800}
+  staff-session:
+    cookie-secure: ${STAFF_SESSION_COOKIE_SECURE:false}
+    cookie-max-age: ${STAFF_SESSION_COOKIE_MAX_AGE:31536000}
   mcm-studio:
     frame-overlay-urls:
       FRAME_1: ${MCM_STUDIO_FRAME_1_OVERLAY_URL:}
