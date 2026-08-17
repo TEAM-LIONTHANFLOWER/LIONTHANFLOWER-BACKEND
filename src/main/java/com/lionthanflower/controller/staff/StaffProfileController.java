@@ -63,6 +63,7 @@ public class StaffProfileController {
         .body(ApiResponse.success(result.profile()));
   }
 
+  @Operation(summary = "직원 프로필 조회", description = "staffToken 쿠키로 인증된 직원의 프로필을 조회합니다.")
   @GetMapping("/api/staff/me/profile")
   public ApiResponse<StaffProfileResponse> getMyProfile(@AuthenticationPrincipal Staff staff) {
     if (staff == null) {
