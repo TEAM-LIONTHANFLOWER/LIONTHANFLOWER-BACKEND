@@ -29,7 +29,9 @@ import com.lionthanflower.infrastructure.persistence.VisitRepository;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,14 @@ public class StaffArcStateService {
 
   private static final Set<ArcStatus> VISIBLE_STATUSES =
       Set.of(ArcStatus.SHARED, ArcStatus.FINALIZED);
+  private static final Set<String> ARC_UNIQUE_CONSTRAINTS =
+      Set.of(
+          "uk_purchases_visit_id",
+          "uk_purchase_items_purchase_variant",
+          "uk_arcs_visit_id",
+          "uk_arcs_purchase_id",
+          "uk_arcs_customer_arc_number",
+          "uk_arc_revisions_arc_number");
 
   private final VisitRepository visitRepository;
   private final CustomerRepository customerRepository;
@@ -79,16 +89,20 @@ public class StaffArcStateService {
     ArcInputSnapshot inputSnapshot = requireInput(request);
     visit.confirmPurchase(staff.getId(), Instant.now());
     Customer customer = findCustomer(visit.getCustomerId());
-    Purchase purchase = purchaseRepository.save(Purchase.create(visit.getId()));
-    purchaseItemRepository.saveAll(
-        PurchaseItem.createAll(purchase.getId(), inputSnapshot.purchasedProductVariantIds()));
-    Arc arc =
-        arcRepository.save(
-            Arc.create(visit.getId(), purchase.getId(), customer.getId(), staff.getId()));
-    ArcRevision revision =
-        arcRevisionRepository.save(
-            ArcRevision.start(arc.getId(), 1, inputSnapshot, templateVersion, staff.getId()));
-    return context(arc, revision, customer, visit, inputSnapshot);
+    try {
+      Purchase purchase = purchaseRepository.saveAndFlush(Purchase.create(visit.getId()));
+      purchaseItemRepository.saveAll(
+          PurchaseItem.createAll(purchase.getId(), inputSnapshot.purchasedProductVariantIds()));
+      Arc arc =
+          arcRepository.saveAndFlush(
+              Arc.create(visit.getId(), purchase.getId(), customer.getId(), staff.getId()));
+      ArcRevision revision =
+          arcRevisionRepository.save(
+              ArcRevision.start(arc.getId(), 1, inputSnapshot, templateVersion, staff.getId()));
+      return context(arc, revision, customer, visit, inputSnapshot);
+    } catch (DataIntegrityViolationException exception) {
+      throw translateUniqueConstraint(exception);
+    }
   }
 
   @Transactional
@@ -175,8 +189,32 @@ public class StaffArcStateService {
     }
     long nextArcNumber =
         arcRepository.countByCustomerIdAndStatusIn(arc.getCustomerId(), VISIBLE_STATUSES) + 1;
-    arc.shareFirst(revision, Instant.now(), Math.toIntExact(nextArcNumber));
-    return toResponse(arc, revision);
+    try {
+      arc.shareFirst(revision, Instant.now(), Math.toIntExact(nextArcNumber));
+      arcRepository.saveAndFlush(arc);
+      return toResponse(arc, revision);
+    } catch (DataIntegrityViolationException exception) {
+      throw translateUniqueConstraint(exception);
+    }
+  }
+
+  private RuntimeException translateUniqueConstraint(DataIntegrityViolationException exception) {
+    if (isArcUniqueConstraintViolation(exception)) {
+      return new BusinessException(ArcErrorCode.ALREADY_EXISTS);
+    }
+    return exception;
+  }
+
+  private boolean isArcUniqueConstraintViolation(DataIntegrityViolationException exception) {
+    Throwable cause = exception;
+    while (cause != null) {
+      if (cause instanceof ConstraintViolationException constraintViolation
+          && ARC_UNIQUE_CONSTRAINTS.contains(constraintViolation.getConstraintName())) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+    return false;
   }
 
   private GenerationContext context(

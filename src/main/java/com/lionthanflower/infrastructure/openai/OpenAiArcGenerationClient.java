@@ -140,6 +140,9 @@ public class OpenAiArcGenerationClient implements ArcGenerationPort {
             item.path("content")
                 .forEach(
                     content -> {
+                      if (!"output_text".equals(content.path("type").asText())) {
+                        return;
+                      }
                       String text = content.path("text").asText(null);
                       if (text != null && !text.isBlank()) {
                         texts.add(text);

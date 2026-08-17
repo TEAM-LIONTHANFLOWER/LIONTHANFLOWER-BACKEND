@@ -4,7 +4,12 @@ package com.lionthanflower.infrastructure.persistence;
 import com.lionthanflower.domain.purchase.entity.PurchaseItem;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface PurchaseItemRepository extends JpaRepository<PurchaseItem, UUID> {
-  void deleteByPurchaseId(UUID purchaseId);
+  @Modifying(flushAutomatically = true, clearAutomatically = true)
+  @Query("delete from PurchaseItem item where item.purchaseId = :purchaseId")
+  void deleteByPurchaseId(@Param("purchaseId") UUID purchaseId);
 }

@@ -39,6 +39,8 @@ app:
     api-key: ${OPENAI_API_KEY:}
     model: ${OPENAI_MODEL:gpt-4o-mini}
     base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+    connect-timeout: ${OPENAI_CONNECT_TIMEOUT:PT5S}
+    read-timeout: ${OPENAI_READ_TIMEOUT:PT30S}
   arc:
     template-version: ${ARC_TEMPLATE_VERSION:arc-v1}
 

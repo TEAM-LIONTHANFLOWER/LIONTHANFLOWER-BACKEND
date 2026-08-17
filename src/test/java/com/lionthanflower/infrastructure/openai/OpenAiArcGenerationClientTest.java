@@ -21,6 +21,7 @@ import com.lionthanflower.domain.arc.entity.PurchaseCriterion;
 import com.lionthanflower.domain.arc.entity.PurchaseDecisionStyle;
 import com.lionthanflower.domain.product.entity.ProductCategory;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -83,6 +84,31 @@ class OpenAiArcGenerationClientTest {
     assertThatThrownBy(() -> client.generate(command()))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Arc 생성 결과");
+    server.verify();
+  }
+
+  @Test
+  void output_content는_output_text_타입의_텍스트만_Arc_결과로_사용한다() throws Exception {
+    String generatedJson =
+        "{\"momentSummary\":\"오늘의 순간\",\"preferences\":[\"실용성\"],\"momentToRemember\":\"기억할 순간\"}";
+    String response =
+        new ObjectMapper()
+            .writeValueAsString(
+                Map.of(
+                    "output",
+                    List.of(
+                        Map.of(
+                            "content",
+                            List.of(
+                                Map.of("type", "refusal", "text", "이 내용은 Arc JSON이 아닙니다."),
+                                Map.of("type", "output_text", "text", generatedJson))))));
+    server
+        .expect(requestTo("/v1/responses"))
+        .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+    ArcGeneratedContent result = client.generate(command());
+
+    assertThat(result.momentSummary()).isEqualTo("오늘의 순간");
     server.verify();
   }
 

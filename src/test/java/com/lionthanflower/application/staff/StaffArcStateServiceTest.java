@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,16 +39,21 @@ import com.lionthanflower.infrastructure.persistence.CustomerRepository;
 import com.lionthanflower.infrastructure.persistence.PurchaseItemRepository;
 import com.lionthanflower.infrastructure.persistence.PurchaseRepository;
 import com.lionthanflower.infrastructure.persistence.VisitRepository;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 
 @ExtendWith(MockitoExtension.class)
 class StaffArcStateServiceTest {
@@ -86,8 +92,9 @@ class StaffArcStateServiceTest {
     when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
     when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
     when(arcRepository.findByVisitId(visit.getId())).thenReturn(Optional.empty());
-    when(purchaseRepository.save(any(Purchase.class))).thenReturn(purchase);
-    when(arcRepository.save(any(Arc.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(purchaseRepository.saveAndFlush(any(Purchase.class))).thenReturn(purchase);
+    when(arcRepository.saveAndFlush(any(Arc.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
     when(arcRevisionRepository.save(any(ArcRevision.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -109,6 +116,27 @@ class StaffArcStateServiceTest {
         Arc.create(visit.getId(), UUID.randomUUID(), visit.getCustomerId(), staff.getId());
     when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
     when(arcRepository.findByVisitId(visit.getId())).thenReturn(Optional.of(existing));
+
+    assertThatThrownBy(
+            () ->
+                service.prepareInitial(
+                    visit.getId(), staff, new StaffArcGenerationRequest(snapshot())))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception -> assertThat(exception.errorCode()).isEqualTo(ArcErrorCode.ALREADY_EXISTS));
+  }
+
+  @Test
+  void Arc와_구매의_유니크_제약_위반은_Arc_충돌로_변환한다() {
+    Staff staff = staff();
+    Visit visit = visit(UUID.randomUUID(), InteractionStyle.SELF_GUIDED);
+    Customer customer = org.mockito.Mockito.mock(Customer.class);
+    when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
+    when(customerRepository.findById(visit.getCustomerId())).thenReturn(Optional.of(customer));
+    when(arcRepository.findByVisitId(visit.getId())).thenReturn(Optional.empty());
+    doThrow(uniqueConstraint("uk_purchases_visit_id"))
+        .when(purchaseRepository)
+        .saveAndFlush(any(Purchase.class));
 
     assertThatThrownBy(
             () ->
@@ -143,6 +171,47 @@ class StaffArcStateServiceTest {
     assertThat(result.arcStatus()).isEqualTo(ArcStatus.SHARED);
     assertThat(result.revisionStatus()).isEqualTo(ArcRevisionStatus.READY);
     assertThat(arc.getArcNumber()).isEqualTo(1);
+  }
+
+  @Test
+  void Arc_공유_중_유니크_제약_위반은_Arc_충돌로_변환한다() {
+    Staff staff = staff();
+    Visit visit = visit(UUID.randomUUID(), InteractionStyle.STAFF_RECOMMENDATION);
+    visit.assignStaff(staff.getId(), Instant.now());
+    visit.confirmPurchase(staff.getId(), Instant.now());
+    Purchase purchase = Purchase.create(visit.getId());
+    Arc arc = Arc.create(visit.getId(), purchase.getId(), visit.getCustomerId(), staff.getId());
+    ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staff.getId());
+    revision.complete(
+        "{\"momentSummary\":\"오늘의 순간\",\"preferences\":[\"실용성\"],\"momentToRemember\":\"기억할 순간\"}",
+        Instant.now());
+    when(arcRepository.findById(arc.getId())).thenReturn(Optional.of(arc));
+    when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
+    when(arcRevisionRepository.findByIdAndArcId(revision.getId(), arc.getId()))
+        .thenReturn(Optional.of(revision));
+    when(arcRepository.countByCustomerIdAndStatusIn(eq(visit.getCustomerId()), anyCollection()))
+        .thenReturn(0L);
+    doThrow(uniqueConstraint("uk_arcs_customer_arc_number"))
+        .when(arcRepository)
+        .saveAndFlush(any(Arc.class));
+
+    assertThatThrownBy(() -> service.share(arc.getId(), revision.getId(), staff))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception -> assertThat(exception.errorCode()).isEqualTo(ArcErrorCode.ALREADY_EXISTS));
+  }
+
+  @Test
+  void 구매_항목_삭제는_flush와_clear가_활성화된_bulk_query를_사용한다() throws Exception {
+    Method method = PurchaseItemRepository.class.getMethod("deleteByPurchaseId", UUID.class);
+    Modifying modifying = method.getAnnotation(Modifying.class);
+    Query query = method.getAnnotation(Query.class);
+
+    assertThat(modifying).isNotNull();
+    assertThat(modifying.flushAutomatically()).isTrue();
+    assertThat(modifying.clearAutomatically()).isTrue();
+    assertThat(query).isNotNull();
+    assertThat(query.value()).contains("delete from PurchaseItem");
   }
 
   private Staff staff() {
@@ -180,5 +249,10 @@ class StaffArcStateServiceTest {
         Set.of(ProductExplanationPreference.KEY_POINTS_ONLY),
         PurchaseDecisionStyle.QUICK,
         "차분한 응대를 선호함");
+  }
+
+  private DataIntegrityViolationException uniqueConstraint(String constraintName) {
+    return new DataIntegrityViolationException(
+        "유니크 제약 위반", new ConstraintViolationException("유니크 제약 위반", null, constraintName));
   }
 }
