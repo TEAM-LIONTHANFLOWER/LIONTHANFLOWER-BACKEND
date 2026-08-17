@@ -45,6 +45,11 @@ class InitialDomainMySqlMigrationTest extends MySqlContainerSupport {
     assertThat(countConstraints("arcs", "uk_arcs_customer_arc_number")).isEqualTo(1);
   }
 
+  @Test
+  void 제품_Variant_이미지_컬럼이_제거된다() throws SQLException {
+    assertThat(countColumns("product_variants", "image_object_key")).isZero();
+  }
+
   private int countTables(String... tableNames) throws SQLException {
     String placeholders = String.join(",", java.util.Collections.nCopies(tableNames.length, "?"));
     String sql =

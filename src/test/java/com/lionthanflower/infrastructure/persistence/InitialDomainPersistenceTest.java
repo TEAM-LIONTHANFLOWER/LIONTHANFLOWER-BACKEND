@@ -49,6 +49,11 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
   }
 
   @Test
+  void 제품_Variant_이미지_컬럼이_제거된다() throws SQLException {
+    assertThat(countColumns("product_variants", "image_object_key")).isZero();
+  }
+
+  @Test
   void 방문당_구매와_Arc와_Visit_Memory는_각각_하나만_저장할_수_있다() throws SQLException {
     PersistenceFixture fixture = PersistenceFixture.insertRequiredRows(dataSource);
 
