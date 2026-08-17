@@ -35,6 +35,12 @@ app:
     frame-overlay-urls:
       FRAME_1: ${MCM_STUDIO_FRAME_1_OVERLAY_URL:}
       FRAME_2: ${MCM_STUDIO_FRAME_2_OVERLAY_URL:}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_MODEL:gpt-4o-mini}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+  arc:
+    template-version: ${ARC_TEMPLATE_VERSION:arc-v1}
 
 management:
   endpoints:
