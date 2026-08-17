@@ -4,6 +4,9 @@ package com.lionthanflower.controller.staff;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -17,6 +20,7 @@ import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.store.error.StaffErrorCode;
 import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.global.error.GlobalExceptionHandler;
+import jakarta.servlet.http.Cookie;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
@@ -94,6 +98,64 @@ class StaffProfileControllerTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error.code").value("COMMON-400"))
         .andExpect(jsonPath("$.error.fieldErrors[0].field").value("storeId"));
+  }
+
+  @Test
+  void 이름이_100자를_초과하면_공통_400을_반환한다() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/staff/me/profile")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                                    {"storeId":"%s","name":"%s","languages":["EN"]}
+                                    """
+                        .formatted(UUID.randomUUID(), "가".repeat(101))))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.code").value("COMMON-400"));
+
+    verify(staffProfileService, never()).register(any(), any());
+  }
+
+  @Test
+  void 언어_원소가_비어_있으면_공통_400을_반환한다() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/staff/me/profile")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                                    {"storeId":"%s","name":"김형진","languages":[" "]}
+                                    """
+                        .formatted(UUID.randomUUID())))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.code").value("COMMON-400"));
+
+    verify(staffProfileService, never()).register(any(), any());
+  }
+
+  @Test
+  void 기존_staffToken을_서비스에_전달한다() throws Exception {
+    UUID staffId = UUID.randomUUID();
+    UUID storeId = UUID.randomUUID();
+    StaffProfileResponse profile =
+        new StaffProfileResponse(staffId, storeId, "김형진", Set.of(LanguageCode.EN), Instant.now());
+    when(staffProfileService.register(any(), eq("existing-token")))
+        .thenReturn(new StaffRegistrationResult(profile, "issued-token"));
+
+    mockMvc
+        .perform(
+            post("/api/staff/me/profile")
+                .cookie(new Cookie("staffToken", "existing-token"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                                    {"storeId":"%s","name":"김형진","languages":["EN"]}
+                                    """
+                        .formatted(storeId)))
+        .andExpect(status().isOk());
+
+    verify(staffProfileService).register(any(), eq("existing-token"));
   }
 
   @Test

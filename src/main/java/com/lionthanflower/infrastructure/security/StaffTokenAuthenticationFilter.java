@@ -33,10 +33,12 @@ public class StaffTokenAuthenticationFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
 
-    findRawToken(request)
-        .map(staffTokenGenerator::hash)
-        .flatMap(staffRepository::findByTokenHash)
-        .ifPresent(this::setAuthentication);
+    if (SecurityContextHolder.getContext().getAuthentication() == null) {
+      findRawToken(request)
+          .map(staffTokenGenerator::hash)
+          .flatMap(staffRepository::findByTokenHash)
+          .ifPresent(this::setAuthentication);
+    }
 
     filterChain.doFilter(request, response);
   }

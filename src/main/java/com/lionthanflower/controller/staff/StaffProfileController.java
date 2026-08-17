@@ -5,6 +5,7 @@ import com.lionthanflower.application.staff.StaffProfileService;
 import com.lionthanflower.application.staff.dto.StaffProfileRegisterRequest;
 import com.lionthanflower.application.staff.dto.StaffRegistrationResult;
 import com.lionthanflower.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import java.time.Duration;
 import org.springframework.http.HttpHeaders;
@@ -37,6 +38,7 @@ public class StaffProfileController {
     this.cookieMaxAgeSeconds = cookieMaxAgeSeconds;
   }
 
+  @Operation(summary = "직원 프로필 등록", description = "근무 매장과 구사 언어를 등록하고 직원 인증 쿠키를 발급합니다.")
   @PostMapping("/api/staff/me/profile")
   public ResponseEntity<ApiResponse<?>> register(
       @Valid @RequestBody StaffProfileRegisterRequest request,
