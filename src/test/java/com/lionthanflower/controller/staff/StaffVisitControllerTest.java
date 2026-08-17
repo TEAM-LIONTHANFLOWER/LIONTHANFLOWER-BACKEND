@@ -21,7 +21,9 @@ import com.lionthanflower.domain.store.entity.Staff;
 import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
+import com.lionthanflower.domain.visit.error.VisitErrorCode;
 import com.lionthanflower.global.config.CustomerApiSecurityConfig;
+import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.global.error.GlobalExceptionHandler;
 import io.swagger.v3.oas.annotations.Operation;
 import java.lang.reflect.Method;
@@ -177,6 +179,40 @@ class StaffVisitControllerTest {
                         new UsernamePasswordAuthenticationToken(staff, null, List.of()))))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error.code").value("COMMON-409"));
+  }
+
+  @Test
+  void 방문을_찾지_못하면_404와_VISIT_404를_반환한다() throws Exception {
+    UUID visitId = UUID.randomUUID();
+    Staff staff = Staff.create(UUID.randomUUID(), "김형진", "hashed-token", Set.of(LanguageCode.EN));
+    when(staffVisitService.assignVisit(visitId, staff))
+        .thenThrow(new BusinessException(VisitErrorCode.NOT_FOUND));
+
+    mockMvc
+        .perform(
+            post("/api/staff/visits/{visitId}/assignment", visitId)
+                .with(
+                    authentication(
+                        new UsernamePasswordAuthenticationToken(staff, null, List.of()))))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error.code").value("VISIT-404"));
+  }
+
+  @Test
+  void 매칭할_수_없는_방문은_409와_VISIT_409를_반환한다() throws Exception {
+    UUID visitId = UUID.randomUUID();
+    Staff staff = Staff.create(UUID.randomUUID(), "김형진", "hashed-token", Set.of(LanguageCode.EN));
+    when(staffVisitService.assignVisit(visitId, staff))
+        .thenThrow(new BusinessException(VisitErrorCode.NOT_ASSIGNABLE));
+
+    mockMvc
+        .perform(
+            post("/api/staff/visits/{visitId}/assignment", visitId)
+                .with(
+                    authentication(
+                        new UsernamePasswordAuthenticationToken(staff, null, List.of()))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("VISIT-409"));
   }
 
   @Test
