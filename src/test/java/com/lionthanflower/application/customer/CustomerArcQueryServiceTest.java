@@ -200,6 +200,9 @@ class CustomerArcQueryServiceTest {
 
   private ArcInputSnapshot snapshot(UUID purchasedVariantId) {
     return new ArcInputSnapshot(
+        java.time.LocalDate.of(2026, 8, 13),
+        "KOREA",
+        "MCM HAUS",
         List.of(purchasedVariantId),
         java.util.Set.of(ProductCategory.BAG),
         java.util.Set.of(PreferredColor.BLACK),

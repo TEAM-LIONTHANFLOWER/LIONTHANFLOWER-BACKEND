@@ -3,10 +3,14 @@ package com.lionthanflower.domain.common.entity;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 public final class SnapshotJsonSerializer {
 
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final ObjectMapper OBJECT_MAPPER =
+      new ObjectMapper()
+          .findAndRegisterModules()
+          .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
   private SnapshotJsonSerializer() {}
 

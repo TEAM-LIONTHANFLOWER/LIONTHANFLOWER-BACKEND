@@ -2,12 +2,16 @@
 package com.lionthanflower.domain.arc.entity;
 
 import com.lionthanflower.domain.product.entity.ProductCategory;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
 public record ArcInputSnapshot(
+    LocalDate purchaseDate,
+    String purchaseCountry,
+    String purchaseStore,
     List<UUID> purchasedProductVariantIds,
     Set<ProductCategory> preferredCategories,
     Set<PreferredColor> preferredColors,
@@ -23,6 +27,8 @@ public record ArcInputSnapshot(
     String staffObservation) {
 
   public ArcInputSnapshot {
+    purchaseCountry = normalizeOptional(purchaseCountry, 100, "구매 국가");
+    purchaseStore = normalizeOptional(purchaseStore, 100, "구매 매장");
     purchasedProductVariantIds = copyList(purchasedProductVariantIds, true, "구매 제품 Variant");
     preferredCategories = copySet(preferredCategories, "선호 제품군");
     preferredColors = copySet(preferredColors, "선호 컬러");
@@ -35,6 +41,18 @@ public record ArcInputSnapshot(
     interactionPreferences = copySet(interactionPreferences, "선호 응대 방식");
     explanationPreferences = copySet(explanationPreferences, "제품 설명 선호");
     staffObservation = normalizeOptional(staffObservation, 200, "직원 관찰 메모");
+  }
+
+  public void validatePurchaseInfo() {
+    if (purchaseDate == null) {
+      throw new IllegalArgumentException("구매 날짜는 null일 수 없습니다.");
+    }
+    if (purchaseCountry == null) {
+      throw new IllegalArgumentException("구매 국가는 비어 있을 수 없습니다.");
+    }
+    if (purchaseStore == null) {
+      throw new IllegalArgumentException("구매 매장은 비어 있을 수 없습니다.");
+    }
   }
 
   private static <T> List<T> copyList(List<T> values, boolean required, String fieldName) {

@@ -3,6 +3,8 @@ package com.lionthanflower.application.staff;
 
 import com.lionthanflower.application.staff.dto.StaffVisitAssignmentResponse;
 import com.lionthanflower.application.staff.dto.VisitSummaryResponse;
+import com.lionthanflower.domain.arc.entity.Arc;
+import com.lionthanflower.domain.arc.entity.ArcStatus;
 import com.lionthanflower.domain.customer.entity.Customer;
 import com.lionthanflower.domain.store.entity.Staff;
 import com.lionthanflower.domain.visit.entity.InteractionStyle;
@@ -10,6 +12,7 @@ import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
 import com.lionthanflower.domain.visit.error.VisitErrorCode;
 import com.lionthanflower.global.error.BusinessException;
+import com.lionthanflower.infrastructure.persistence.ArcRepository;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
 import com.lionthanflower.infrastructure.persistence.VisitRepository;
 import java.time.Instant;
@@ -26,13 +29,20 @@ public class StaffVisitService {
 
   private static final Set<VisitStatus> EXCLUDED_STATUSES =
       Set.of(VisitStatus.COMPLETED, VisitStatus.CANCELED);
+  private static final Set<ArcStatus> VISIBLE_ARC_STATUSES =
+      Set.of(ArcStatus.SHARED, ArcStatus.FINALIZED);
 
   private final VisitRepository visitRepository;
   private final CustomerRepository customerRepository;
+  private final ArcRepository arcRepository;
 
-  public StaffVisitService(VisitRepository visitRepository, CustomerRepository customerRepository) {
+  public StaffVisitService(
+      VisitRepository visitRepository,
+      CustomerRepository customerRepository,
+      ArcRepository arcRepository) {
     this.visitRepository = visitRepository;
     this.customerRepository = customerRepository;
+    this.arcRepository = arcRepository;
   }
 
   @Transactional(readOnly = true)
@@ -43,9 +53,22 @@ public class StaffVisitService {
     Map<UUID, String> customerNames =
         customerRepository.findAllById(customerIds).stream()
             .collect(Collectors.toMap(Customer::getId, Customer::getName));
+    Map<UUID, Long> arcCounts =
+        customerIds.isEmpty()
+            ? Map.of()
+            : arcRepository
+                .findByCustomerIdInAndStatusIn(customerIds, VISIBLE_ARC_STATUSES)
+                .stream()
+                .map(Arc::getCustomerId)
+                .collect(Collectors.groupingBy(customerId -> customerId, Collectors.counting()));
 
     return visits.stream()
-        .map(visit -> VisitSummaryResponse.of(visit, customerNames.get(visit.getCustomerId())))
+        .map(
+            visit ->
+                VisitSummaryResponse.of(
+                    visit,
+                    customerNames.get(visit.getCustomerId()),
+                    arcCounts.getOrDefault(visit.getCustomerId(), 0L)))
         .toList();
   }
 

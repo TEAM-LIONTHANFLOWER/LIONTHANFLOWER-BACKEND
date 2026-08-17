@@ -2,7 +2,12 @@
 package com.lionthanflower.infrastructure.persistence;
 
 import com.lionthanflower.domain.arc.entity.ArcRevision;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ArcRevisionRepository extends JpaRepository<ArcRevision, UUID> {}
+public interface ArcRevisionRepository extends JpaRepository<ArcRevision, UUID> {
+  Optional<ArcRevision> findTopByArcIdOrderByRevisionNumberDesc(UUID arcId);
+
+  Optional<ArcRevision> findByIdAndArcId(UUID id, UUID arcId);
+}

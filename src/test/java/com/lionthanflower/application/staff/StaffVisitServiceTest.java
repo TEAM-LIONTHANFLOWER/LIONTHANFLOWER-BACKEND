@@ -3,19 +3,24 @@ package com.lionthanflower.application.staff;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.lionthanflower.application.staff.dto.StaffVisitAssignmentResponse;
+import com.lionthanflower.domain.arc.entity.Arc;
 import com.lionthanflower.domain.common.entity.LanguageCode;
+import com.lionthanflower.domain.customer.entity.Customer;
 import com.lionthanflower.domain.store.entity.Staff;
 import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
 import com.lionthanflower.domain.visit.error.VisitErrorCode;
 import com.lionthanflower.global.error.BusinessException;
+import com.lionthanflower.infrastructure.persistence.ArcRepository;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
 import com.lionthanflower.infrastructure.persistence.VisitRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -30,13 +35,14 @@ class StaffVisitServiceTest {
 
   @Mock private VisitRepository visitRepository;
   @Mock private CustomerRepository customerRepository;
+  @Mock private ArcRepository arcRepository;
 
   private StaffVisitService service;
   private UUID storeId;
 
   @BeforeEach
   void setUp() {
-    service = new StaffVisitService(visitRepository, customerRepository);
+    service = new StaffVisitService(visitRepository, customerRepository, arcRepository);
     storeId = UUID.randomUUID();
   }
 
@@ -91,6 +97,38 @@ class StaffVisitServiceTest {
             BusinessException.class,
             exception ->
                 assertThat(exception.errorCode()).isEqualTo(VisitErrorCode.NOT_ASSIGNABLE));
+  }
+
+  @Test
+  void 현재_방문_목록에_추가_요구사항과_고객의_Arc_개수를_포함한다() {
+    Staff staff = staff(LanguageCode.EN);
+    UUID customerId = UUID.randomUUID();
+    Visit visit = Visit.create(customerId, storeId);
+    visit.completeOnboarding(
+        LanguageCode.EN, InteractionStyle.STAFF_RECOMMENDATION, "다양한 컬러를 보고 싶어요");
+    Customer customer = mock(Customer.class);
+    Arc firstArc = mock(Arc.class);
+    Arc secondArc = mock(Arc.class);
+    when(customer.getId()).thenReturn(customerId);
+    when(customer.getName()).thenReturn("홍길동");
+    when(firstArc.getCustomerId()).thenReturn(customerId);
+    when(secondArc.getCustomerId()).thenReturn(customerId);
+    when(visitRepository.findByStoreIdAndStatusNotIn(
+            org.mockito.ArgumentMatchers.eq(storeId), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(List.of(visit));
+    when(customerRepository.findAllById(Set.of(customerId))).thenReturn(List.of(customer));
+    when(arcRepository.findByCustomerIdInAndStatusIn(
+            org.mockito.ArgumentMatchers.eq(Set.of(customerId)),
+            org.mockito.ArgumentMatchers.any()))
+        .thenReturn(List.of(firstArc, secondArc));
+
+    List<com.lionthanflower.application.staff.dto.VisitSummaryResponse> result =
+        service.getCurrentVisits(storeId);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.getFirst().customerName()).isEqualTo("홍길동");
+    assertThat(result.getFirst().additionalRequest()).isEqualTo("다양한 컬러를 보고 싶어요");
+    assertThat(result.getFirst().arcCount()).isEqualTo(2);
   }
 
   private Staff staff(LanguageCode language) {

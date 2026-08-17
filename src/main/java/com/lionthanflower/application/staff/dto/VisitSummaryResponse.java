@@ -13,15 +13,19 @@ public record VisitSummaryResponse(
     VisitStatus status,
     LanguageCode serviceLanguage,
     InteractionStyle interactionStyle,
-    UUID staffId) {
+    UUID staffId,
+    String additionalRequest,
+    long arcCount) {
 
-  public static VisitSummaryResponse of(Visit visit, String customerName) {
+  public static VisitSummaryResponse of(Visit visit, String customerName, long arcCount) {
     return new VisitSummaryResponse(
         visit.getId(),
         customerName,
         visit.getStatus(),
         visit.getServiceLanguage(),
         visit.getInteractionStyle(),
-        visit.getStaffId());
+        visit.getStaffId(),
+        visit.getAdditionalRequest(),
+        arcCount);
   }
 }

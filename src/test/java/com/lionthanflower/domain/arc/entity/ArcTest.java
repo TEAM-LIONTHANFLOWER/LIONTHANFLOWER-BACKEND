@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.lionthanflower.domain.product.entity.ProductCategory;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -149,10 +150,65 @@ class ArcTest {
   }
 
   @Test
+  void 구매_날짜와_국가와_매장을_Arc_입력_스냅샷으로_저장한다() {
+    ArcInputSnapshot input =
+        new ArcInputSnapshot(
+            LocalDate.of(2026, 8, 13),
+            "KOREA",
+            "MCM HAUS",
+            List.of(UUID.randomUUID()),
+            Set.of(ProductCategory.BAG),
+            Set.of(PreferredColor.BLACK),
+            null,
+            Set.of(PreferredStyle.CLASSIC_TIMELESS),
+            null,
+            List.of(),
+            Set.of(PurchaseCriterion.DESIGN),
+            null,
+            Set.of(ActualInteractionPreference.MODERATE_GUIDANCE),
+            Set.of(ProductExplanationPreference.KEY_POINTS_ONLY),
+            PurchaseDecisionStyle.COMPARE_FIRST,
+            "재방문 시 신상품 안내");
+
+    assertThat(input.purchaseDate()).isEqualTo(LocalDate.of(2026, 8, 13));
+    assertThat(input.purchaseCountry()).isEqualTo("KOREA");
+    assertThat(input.purchaseStore()).isEqualTo("MCM HAUS");
+  }
+
+  @Test
+  void 구매_정보가_없는_구버전_스냅샷은_신규_생성_검증에서_거부한다() {
+    ArcInputSnapshot legacyInput =
+        new ArcInputSnapshot(
+            null,
+            null,
+            null,
+            List.of(UUID.randomUUID()),
+            Set.of(ProductCategory.BAG),
+            Set.of(PreferredColor.BLACK),
+            null,
+            Set.of(PreferredStyle.CLASSIC_TIMELESS),
+            null,
+            List.of(),
+            Set.of(PurchaseCriterion.DESIGN),
+            null,
+            Set.of(ActualInteractionPreference.MODERATE_GUIDANCE),
+            Set.of(ProductExplanationPreference.KEY_POINTS_ONLY),
+            PurchaseDecisionStyle.COMPARE_FIRST,
+            "재방문 시 신상품 안내");
+
+    assertThatThrownBy(legacyInput::validatePurchaseInfo)
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("구매 날짜는 null일 수 없습니다.");
+  }
+
+  @Test
   void 직원_관찰_메모는_200자를_초과할_수_없다() {
     assertThatThrownBy(
             () ->
                 new ArcInputSnapshot(
+                    LocalDate.of(2026, 8, 13),
+                    "KOREA",
+                    "MCM HAUS",
                     List.of(UUID.randomUUID()),
                     Set.of(),
                     Set.of(),
@@ -196,6 +252,9 @@ class ArcTest {
 
   private ArcInputSnapshot snapshot() {
     return new ArcInputSnapshot(
+        LocalDate.of(2026, 8, 13),
+        "KOREA",
+        "MCM HAUS",
         List.of(UUID.randomUUID()),
         Set.of(ProductCategory.BAG),
         Set.of(PreferredColor.BLACK),
