@@ -8,6 +8,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -17,7 +19,9 @@ import com.lionthanflower.application.staff.StaffProfileService;
 import com.lionthanflower.application.staff.dto.StaffProfileResponse;
 import com.lionthanflower.application.staff.dto.StaffRegistrationResult;
 import com.lionthanflower.domain.common.entity.LanguageCode;
+import com.lionthanflower.domain.store.entity.Staff;
 import com.lionthanflower.domain.store.error.StaffErrorCode;
+import com.lionthanflower.global.config.CustomerApiSecurityConfig;
 import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.global.error.GlobalExceptionHandler;
 import jakarta.servlet.http.Cookie;
@@ -26,18 +30,17 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(StaffProfileController.class)
-@AutoConfigureMockMvc(addFilters = false)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, CustomerApiSecurityConfig.class})
 @TestPropertySource(properties = {"app.staff-session.cookie-secure=true"})
 class StaffProfileControllerTest {
 
@@ -176,5 +179,30 @@ class StaffProfileControllerTest {
                         .formatted(storeId)))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error.code").value("STAFF-409"));
+  }
+
+  @Test
+  void 인증된_직원이면_본인_프로필을_반환한다() throws Exception {
+    UUID staffId = UUID.randomUUID();
+    UUID storeId = UUID.randomUUID();
+    Staff staff = Staff.create(storeId, "김형진", "hashed-token", Set.of(LanguageCode.EN));
+
+    mockMvc
+        .perform(
+            get("/api/staff/me/profile")
+                .with(
+                    authentication(
+                        new UsernamePasswordAuthenticationToken(staff, null, java.util.List.of()))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.name").value("김형진"));
+  }
+
+  @Test
+  void 인증되지_않으면_401을_반환한다() throws Exception {
+    mockMvc
+        .perform(get("/api/staff/me/profile"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error.code").value("STAFF-401"));
   }
 }
