@@ -72,7 +72,7 @@ class CustomerArcQueryServiceTest {
   }
 
   @Test
-  void 고객의_공개_Arc_목록을_순번_내림차순과_대표_제품으로_조합한다() {
+  void 고객의_공개_Arc_목록을_대표_제품과_요약으로_조합한다() {
     String rawToken = "known-token";
     Customer customer = Customer.create(tokenManager.hash(rawToken));
     UUID staffId = UUID.randomUUID();

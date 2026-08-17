@@ -18,7 +18,9 @@ class ArcTest {
     UUID staffId = UUID.randomUUID();
     Arc arc = Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), staffId);
     ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
-    revision.complete("{\"title\":\"My MCM\"}", Instant.parse("2026-08-15T12:00:00Z"));
+    revision.complete(
+        "{\"momentSummary\":\"My MCM\",\"preferences\":[\"디자인\"],\"momentToRemember\":\"첫 순간\"}",
+        Instant.parse("2026-08-15T12:00:00Z"));
 
     arc.shareFirst(revision, Instant.parse("2026-08-15T12:01:00Z"), 1);
 
@@ -85,7 +87,9 @@ class ArcTest {
     ArcRevision next =
         ArcRevision.start(
             fixture.arc().getId(), 2, snapshot(), "arc-v1", fixture.arc().getCreatedByStaffId());
-    next.complete("{\"title\":\"Next\"}", Instant.now());
+    next.complete(
+        "{\"momentSummary\":\"Next\",\"preferences\":[\"디자인\"],\"momentToRemember\":\"다음 순간\"}",
+        Instant.now());
 
     assertThatThrownBy(() -> fixture.arc().reshare(next, Instant.now()))
         .isInstanceOf(IllegalStateException.class)
@@ -97,7 +101,11 @@ class ArcTest {
     ArcRevision revision =
         ArcRevision.start(UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
 
-    assertThatThrownBy(() -> revision.complete("{\"title\":\"My MCM\"}", null))
+    assertThatThrownBy(
+            () ->
+                revision.complete(
+                    "{\"momentSummary\":\"My MCM\",\"preferences\":[\"디자인\"],\"momentToRemember\":\"첫 순간\"}",
+                    null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("Arc 생성 완료 시각은 null일 수 없습니다.");
     assertThat(revision.getStatus()).isEqualTo(ArcRevisionStatus.GENERATING);
@@ -111,7 +119,9 @@ class ArcTest {
         Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
     ArcRevision otherRevision =
         ArcRevision.start(UUID.randomUUID(), 1, snapshot(), "arc-v1", UUID.randomUUID());
-    otherRevision.complete("{\"title\":\"Other\"}", Instant.now());
+    otherRevision.complete(
+        "{\"momentSummary\":\"Other\",\"preferences\":[\"디자인\"],\"momentToRemember\":\"다른 순간\"}",
+        Instant.now());
 
     assertThatThrownBy(() -> arc.shareFirst(otherRevision, Instant.now(), 1))
         .isInstanceOf(IllegalArgumentException.class)
@@ -164,7 +174,9 @@ class ArcTest {
     UUID staffId = UUID.randomUUID();
     Arc arc = Arc.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), staffId);
     ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staffId);
-    revision.complete("{\"title\":\"My MCM\"}", Instant.parse("2026-08-15T12:00:00Z"));
+    revision.complete(
+        "{\"momentSummary\":\"My MCM\",\"preferences\":[\"디자인\"],\"momentToRemember\":\"첫 순간\"}",
+        Instant.parse("2026-08-15T12:00:00Z"));
     arc.shareFirst(revision, Instant.parse("2026-08-15T12:01:00Z"), 1);
     return new ArcAndRevision(arc, revision);
   }
