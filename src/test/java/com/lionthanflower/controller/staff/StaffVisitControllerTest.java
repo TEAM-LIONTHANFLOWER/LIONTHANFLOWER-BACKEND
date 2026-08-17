@@ -73,7 +73,9 @@ class StaffVisitControllerTest {
                     VisitStatus.WAITING_FOR_STAFF,
                     LanguageCode.EN,
                     InteractionStyle.STAFF_RECOMMENDATION,
-                    staff.getId())));
+                    staff.getId(),
+                    "다양한 컬러를 보고 싶어요",
+                    2)));
 
     MvcResult result =
         mockMvc
@@ -87,7 +89,8 @@ class StaffVisitControllerTest {
     verify(staffVisitService).getCurrentVisits(storeId);
     assertThat(result.getResponse().getStatus()).isEqualTo(200);
     assertThat(result.getResponse().getContentAsString())
-        .contains(visitId.toString(), "홍길동", "WAITING_FOR_STAFF");
+        .contains(
+            visitId.toString(), "홍길동", "WAITING_FOR_STAFF", "다양한 컬러를 보고 싶어요", "\"arcCount\":2");
   }
 
   @Test
