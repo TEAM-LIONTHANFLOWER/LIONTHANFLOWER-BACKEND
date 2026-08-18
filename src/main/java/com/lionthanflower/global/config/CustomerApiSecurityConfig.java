@@ -31,14 +31,14 @@ public class CustomerApiSecurityConfig {
     http.csrf(csrf -> csrf.ignoringRequestMatchers("/api/customers/**", "/api/staff/**"))
         .authorizeHttpRequests(
             auth ->
-            auth.requestMatchers(
-                    "/actuator/health",
-                    "/swagger-ui.html",
-                    "/swagger-ui/**",
-                    "/v3/api-docs/**",
-                    "/api/customers/**",
-                    "/api/staff/**")
-                .permitAll()
+                auth.requestMatchers(
+                        "/actuator/health",
+                        "/swagger-ui.html",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/api/customers/**",
+                        "/api/staff/**")
+                    .permitAll()
                     .anyRequest()
                     .authenticated());
 
