@@ -131,6 +131,7 @@ class CustomerArcControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.arcId").value(arcId.toString()))
-        .andExpect(jsonPath("$.data.status").value("FINALIZED"));
+        .andExpect(jsonPath("$.data.status").value("FINALIZED"))
+        .andExpect(jsonPath("$.data.finalizedAt").value("2026-08-15T12:05:00Z"));
   }
 }

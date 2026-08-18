@@ -92,6 +92,27 @@ class VisitMemoryTest {
   }
 
   @Test
+  void 생성_실패_상태에서도_입력을_수정하고_재생성할_수_있다() {
+    VisitMemory memory = createMemory();
+    VisitMemoryInputSnapshot updatedInput =
+        new VisitMemoryInputSnapshot(
+            Map.of(),
+            Set.of(CustomerInterestPoint.COLOR),
+            null,
+            Set.of(NoPurchaseReason.BUDGET),
+            null,
+            null);
+
+    memory.startGeneration();
+    memory.fail("OPENAI_UNAVAILABLE");
+    memory.replaceInput(updatedInput);
+    memory.startGeneration();
+
+    assertThat(memory.getStatus()).isEqualTo(VisitMemoryStatus.GENERATING);
+    assertThat(memory.getInputSnapshot()).contains("COLOR");
+  }
+
+  @Test
   void 검증된_Visit_Memory_입력을_JSON_스냅샷으로_저장한다() {
     VisitMemory memory = createMemory();
 

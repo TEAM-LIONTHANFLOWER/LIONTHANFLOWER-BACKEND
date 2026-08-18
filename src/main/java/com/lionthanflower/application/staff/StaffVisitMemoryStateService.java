@@ -7,6 +7,7 @@ import com.lionthanflower.application.visitmemory.VisitMemoryGenerationCommand;
 import com.lionthanflower.domain.common.entity.SnapshotJsonSerializer;
 import com.lionthanflower.domain.customer.entity.Customer;
 import com.lionthanflower.domain.notification.entity.CustomerNotification;
+import com.lionthanflower.domain.notification.entity.CustomerNotificationType;
 import com.lionthanflower.domain.store.entity.Staff;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
@@ -96,6 +97,9 @@ public class StaffVisitMemoryStateService {
     VisitMemory memory = findMemory(visitMemoryId);
     Visit visit = findVisit(memory.getVisitId(), staff);
     verifyAssignedStaff(visit, staff);
+    if (visit.getStatus() != VisitStatus.VISIT_MEMORY_IN_PROGRESS) {
+      throw new BusinessException(VisitMemoryErrorCode.NOT_ASSIGNABLE);
+    }
     if (memory.getStatus() != VisitMemoryStatus.READY
         && memory.getStatus() != VisitMemoryStatus.FAILED) {
       throw new BusinessException(VisitMemoryErrorCode.NOT_ASSIGNABLE);
@@ -145,8 +149,8 @@ public class StaffVisitMemoryStateService {
     Instant now = Instant.now();
     memory.finalizeMemory(now);
     visit.complete(now);
-    if (!customerNotificationRepository.existsByCustomerIdAndResourceId(
-        memory.getCustomerId(), memory.getId())) {
+    if (!customerNotificationRepository.existsByCustomerIdAndTypeAndResourceId(
+        memory.getCustomerId(), CustomerNotificationType.VISIT_MEMORY, memory.getId())) {
       try {
         customerNotificationRepository.saveAndFlush(
             CustomerNotification.createVisitMemory(

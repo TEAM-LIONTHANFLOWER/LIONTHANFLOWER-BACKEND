@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.lionthanflower.application.customer.CustomerNotificationService;
 import com.lionthanflower.domain.notification.entity.CustomerNotificationType;
 import com.lionthanflower.global.config.CustomerApiSecurityConfig;
+import com.lionthanflower.global.error.BusinessException;
+import com.lionthanflower.global.error.CommonErrorCode;
 import com.lionthanflower.global.error.GlobalExceptionHandler;
 import java.time.Instant;
 import java.util.List;
@@ -80,5 +82,18 @@ class CustomerNotificationControllerTest {
         .andExpect(jsonPath("$.data.read").value(true));
 
     verify(service).markRead(notificationId, "raw-token");
+  }
+
+  @Test
+  void 고객_토큰이_없으면_알림_조회는_401을_반환한다() throws Exception {
+    when(service.getNotifications(null))
+        .thenThrow(new BusinessException(CommonErrorCode.UNAUTHORIZED));
+
+    mockMvc
+        .perform(get("/api/customers/notifications"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error.code").value("COMMON-401"));
+
+    verify(service).getNotifications(null);
   }
 }

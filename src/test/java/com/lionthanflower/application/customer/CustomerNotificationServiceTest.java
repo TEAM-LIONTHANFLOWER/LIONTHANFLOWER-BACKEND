@@ -2,11 +2,15 @@
 package com.lionthanflower.application.customer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.lionthanflower.domain.customer.entity.Customer;
 import com.lionthanflower.domain.notification.entity.CustomerNotification;
+import com.lionthanflower.global.error.BusinessException;
+import com.lionthanflower.global.error.CommonErrorCode;
 import com.lionthanflower.infrastructure.persistence.CustomerNotificationRepository;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
 import java.util.List;
@@ -61,9 +65,45 @@ class CustomerNotificationServiceTest {
         .thenReturn(Optional.of(notification));
 
     var result = service.markRead(notification.getId(), "raw-token");
+    var firstReadAt = result.readAt();
+    var secondResult = service.markRead(notification.getId(), "raw-token");
 
     assertThat(result.read()).isTrue();
-    verify(notificationRepository).save(notification);
+    assertThat(secondResult.readAt()).isEqualTo(firstReadAt);
+    verify(notificationRepository, times(2)).save(notification);
+  }
+
+  @Test
+  void 다른_고객의_알림은_읽음_처리할_수_없다() {
+    Customer customer = customer();
+    UUID notificationId = UUID.randomUUID();
+    when(tokenManager.hash("raw-token")).thenReturn("hashed-token");
+    when(customerRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(customer));
+    when(notificationRepository.findByIdAndCustomerId(notificationId, customer.getId()))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> service.markRead(notificationId, "raw-token"))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception -> assertThat(exception.errorCode()).isEqualTo(CommonErrorCode.NOT_FOUND));
+  }
+
+  @Test
+  void 고객_토큰이_없거나_유효하지_않으면_알림_읽음_처리는_실패한다() {
+    UUID notificationId = UUID.randomUUID();
+
+    assertThatThrownBy(() -> service.markRead(notificationId, null))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception -> assertThat(exception.errorCode()).isEqualTo(CommonErrorCode.UNAUTHORIZED));
+
+    when(tokenManager.hash("invalid-token")).thenReturn("invalid-hash");
+    when(customerRepository.findByTokenHash("invalid-hash")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> service.markRead(notificationId, "invalid-token"))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception -> assertThat(exception.errorCode()).isEqualTo(CommonErrorCode.UNAUTHORIZED));
   }
 
   private Customer customer() {

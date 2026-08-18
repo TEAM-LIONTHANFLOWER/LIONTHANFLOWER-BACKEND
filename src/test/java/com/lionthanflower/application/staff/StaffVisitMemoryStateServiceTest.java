@@ -23,6 +23,7 @@ import com.lionthanflower.domain.visitmemory.entity.ProductEngagement;
 import com.lionthanflower.domain.visitmemory.entity.VisitMemory;
 import com.lionthanflower.domain.visitmemory.entity.VisitMemoryInputSnapshot;
 import com.lionthanflower.domain.visitmemory.entity.VisitMemoryStatus;
+import com.lionthanflower.domain.visitmemory.error.VisitMemoryErrorCode;
 import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.infrastructure.persistence.CustomerNotificationRepository;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
@@ -100,8 +101,10 @@ class StaffVisitMemoryStateServiceTest {
     memory.completeGeneration("{\"summary\":\"최종 기록\"}", Instant.now());
     when(visitMemoryRepository.findById(memory.getId())).thenReturn(Optional.of(memory));
     when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
-    when(customerNotificationRepository.existsByCustomerIdAndResourceId(
-            visit.getCustomerId(), memory.getId()))
+    when(customerNotificationRepository.existsByCustomerIdAndTypeAndResourceId(
+            visit.getCustomerId(),
+            com.lionthanflower.domain.notification.entity.CustomerNotificationType.VISIT_MEMORY,
+            memory.getId()))
         .thenReturn(false);
 
     service.share(memory.getId(), staff);
@@ -126,6 +129,57 @@ class StaffVisitMemoryStateServiceTest {
                 service.prepareInitial(
                     visit.getId(), staff, new StaffVisitMemoryGenerationRequest(snapshot())))
         .isInstanceOf(BusinessException.class);
+  }
+
+  @Test
+  void 취소된_방문의_Visit_Memory는_재생성할_수_없다() {
+    Staff staff = staff();
+    Visit visit = visit(InteractionStyle.SELF_GUIDED);
+    visit.assignStaff(staff.getId(), Instant.now());
+    visit.confirmNoPurchase(staff.getId(), Instant.now());
+    visit.cancel(Instant.now());
+    VisitMemory memory =
+        VisitMemory.create(
+            visit.getId(), visit.getCustomerId(), staff.getId(), snapshot(), "visit-memory-v1");
+    memory.startGeneration();
+    memory.completeGeneration("{\"summary\":\"초안\"}", Instant.now());
+    when(visitMemoryRepository.findById(memory.getId())).thenReturn(Optional.of(memory));
+    when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
+
+    assertThatThrownBy(
+            () ->
+                service.prepareRegeneration(
+                    memory.getId(), staff, new StaffVisitMemoryGenerationRequest(snapshot())))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception ->
+                assertThat(exception.errorCode()).isEqualTo(VisitMemoryErrorCode.NOT_ASSIGNABLE));
+  }
+
+  @Test
+  void Visit_Memory_진행_중인_방문은_재생성할_수_있다() {
+    Staff staff = staff();
+    Visit visit = visit(InteractionStyle.SELF_GUIDED);
+    visit.assignStaff(staff.getId(), Instant.now());
+    visit.confirmNoPurchase(staff.getId(), Instant.now());
+    Customer customer = customer(visit.getCustomerId(), "홍길동");
+    VisitMemory memory =
+        VisitMemory.create(
+            visit.getId(), visit.getCustomerId(), staff.getId(), snapshot(), "visit-memory-v1");
+    memory.startGeneration();
+    memory.completeGeneration("{\"summary\":\"초안\"}", Instant.now());
+    when(visitMemoryRepository.findById(memory.getId())).thenReturn(Optional.of(memory));
+    when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
+    when(customerRepository.findById(visit.getCustomerId())).thenReturn(Optional.of(customer));
+    when(productVariantRepository.findAllById(anyCollection()))
+        .thenReturn(java.util.List.of(org.mockito.Mockito.mock(ProductVariant.class)));
+
+    StaffVisitMemoryStateService.GenerationContext context =
+        service.prepareRegeneration(
+            memory.getId(), staff, new StaffVisitMemoryGenerationRequest(snapshot()));
+
+    assertThat(memory.getStatus()).isEqualTo(VisitMemoryStatus.GENERATING);
+    assertThat(context.generationCommand().customerName()).isEqualTo("홍길동");
   }
 
   private Staff staff() {

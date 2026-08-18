@@ -2,6 +2,7 @@
 package com.lionthanflower.infrastructure.persistence;
 
 import com.lionthanflower.domain.notification.entity.CustomerNotification;
+import com.lionthanflower.domain.notification.entity.CustomerNotificationType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,5 +14,6 @@ public interface CustomerNotificationRepository extends JpaRepository<CustomerNo
 
   Optional<CustomerNotification> findByIdAndCustomerId(UUID id, UUID customerId);
 
-  boolean existsByCustomerIdAndResourceId(UUID customerId, UUID resourceId);
+  boolean existsByCustomerIdAndTypeAndResourceId(
+      UUID customerId, CustomerNotificationType type, UUID resourceId);
 }
