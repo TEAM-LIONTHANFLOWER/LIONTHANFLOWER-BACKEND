@@ -34,8 +34,9 @@ class InitialDomainMySqlMigrationTest extends MySqlContainerSupport {
                 "arcs",
                 "arc_revisions",
                 "visit_memories",
-                "myself_images"))
-        .isEqualTo(13);
+                "myself_images",
+                "customer_notifications"))
+        .isEqualTo(14);
     assertThat(countTables("store_devices")).isZero();
   }
 

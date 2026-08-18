@@ -37,8 +37,9 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
                 "arcs",
                 "arc_revisions",
                 "visit_memories",
-                "myself_images"))
-        .isEqualTo(13);
+                "myself_images",
+                "customer_notifications"))
+        .isEqualTo(14);
     assertThat(countTables("store_devices")).isZero();
   }
 
@@ -65,6 +66,10 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
     PersistenceFixture noPurchaseFixture = PersistenceFixture.insertNoPurchaseRows(dataSource);
     noPurchaseFixture.insertVisitMemory();
     assertThatThrownBy(noPurchaseFixture::insertVisitMemory).isInstanceOf(SQLException.class);
+
+    noPurchaseFixture.insertVisitMemoryNotification();
+    assertThatThrownBy(noPurchaseFixture::insertVisitMemoryNotification)
+        .isInstanceOf(SQLException.class);
   }
 
   @Test
@@ -169,6 +174,7 @@ final class PersistenceFixture {
   private final String visitId = UUID.randomUUID().toString();
   private final String purchaseId = UUID.randomUUID().toString();
   private final String arcId = UUID.randomUUID().toString();
+  private final String visitMemoryNotificationResourceId = UUID.randomUUID().toString();
 
   private PersistenceFixture(DataSource dataSource) {
     this.dataSource = dataSource;
@@ -262,6 +268,22 @@ final class PersistenceFixture {
           "{\"products\":[]}",
           "visit-memory-v1",
           "DRAFT",
+          TIMESTAMP,
+          TIMESTAMP);
+    }
+  }
+
+  void insertVisitMemoryNotification() throws SQLException {
+    try (Connection connection = dataSource.getConnection()) {
+      execute(
+          connection,
+          "insert into customer_notifications (id, customer_id, type, resource_id, message,"
+              + " created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)",
+          UUID.randomUUID().toString(),
+          customerId,
+          "VISIT_MEMORY",
+          visitMemoryNotificationResourceId,
+          "새로운 Visit Memory가 도착했습니다.",
           TIMESTAMP,
           TIMESTAMP);
     }

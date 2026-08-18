@@ -4,6 +4,7 @@ package com.lionthanflower.domain.visitmemory.entity;
 public enum VisitMemoryStatus {
   DRAFT,
   GENERATING,
+  READY,
   FINALIZED,
   FAILED
 }
