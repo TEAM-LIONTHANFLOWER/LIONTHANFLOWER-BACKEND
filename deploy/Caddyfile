@@ -1,0 +1,4 @@
+# mcmorbit.p-e.kr HTTPS reverse proxy 설정
+mcmorbit.p-e.kr {
+	reverse_proxy 127.0.0.1:8080
+}
