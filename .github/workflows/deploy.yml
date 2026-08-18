@@ -1,0 +1,141 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/team-lionthanflower/lionthanflower-backend
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3
+
+      - name: Verify
+        run: ./gradlew spotlessCheck build --stacktrace --no-daemon
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_NAME }}:latest
+
+      - name: Prepare SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$DEPLOY_HOST_KEY" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
+
+      - name: Capture previous image tag
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          previous_tag="$(ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "grep '^IMAGE_TAG=' /opt/mcm-orbit/.env | cut -d= -f2- || true")"
+          printf 'PREVIOUS_IMAGE_TAG=%s\n' "$previous_tag" >> "$GITHUB_ENV"
+
+      - name: Upload production environment
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          PROD_DB_USERNAME: ${{ secrets.PROD_DB_USERNAME }}
+          PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          env_file="$(mktemp)"
+          trap 'rm -f "$env_file"' EXIT
+          {
+            printf 'SPRING_PROFILES_ACTIVE=prod\n'
+            printf 'SERVER_PORT=8080\n'
+            printf 'SPRING_DATASOURCE_URL=%s\n' "$PROD_DB_URL"
+            printf 'SPRING_DATASOURCE_USERNAME=%s\n' "$PROD_DB_USERNAME"
+            printf 'SPRING_DATASOURCE_PASSWORD=%s\n' "$PROD_DB_PASSWORD"
+            printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY"
+            printf 'CUSTOMER_SESSION_COOKIE_SECURE=true\n'
+            printf 'STAFF_SESSION_COOKIE_SECURE=true\n'
+            printf 'IMAGE_NAME=%s\n' "$IMAGE_NAME"
+            printf 'IMAGE_TAG=%s\n' "$IMAGE_TAG"
+            printf 'PREVIOUS_IMAGE_TAG=%s\n' "$PREVIOUS_IMAGE_TAG"
+          } > "$env_file"
+          scp -i "$HOME/.ssh/deploy_key" "$env_file" "$DEPLOY_USER@$DEPLOY_HOST:/tmp/mcm-orbit.env"
+          ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            'sudo install -o root -g root -m 600 /tmp/mcm-orbit.env /opt/mcm-orbit/.env && rm -f /tmp/mcm-orbit.env'
+
+      - name: Deploy container
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sudo docker login ghcr.io --username '$GHCR_USERNAME' --password-stdin"
+          trap 'ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" "sudo docker logout ghcr.io >/dev/null 2>&1 || true"' EXIT
+          ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            'cd /opt/mcm-orbit && sudo docker compose -f compose.production.yml pull && sudo docker compose -f compose.production.yml up -d --remove-orphans'
+
+      - name: Verify health
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          PREVIOUS_IMAGE_TAG: ${{ env.PREVIOUS_IMAGE_TAG }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            status="$(curl --silent --show-error --output /tmp/mcm-orbit-health --write-out '%{http_code}' "http://$DEPLOY_HOST/actuator/health" || true)"
+            if [ "$status" = "200" ] && grep -q '"status":"UP"' /tmp/mcm-orbit-health; then
+              exit 0
+            fi
+            sleep 5
+          done
+          if [ -n "$PREVIOUS_IMAGE_TAG" ]; then
+            ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+              "sudo sed -i -E 's/^IMAGE_TAG=.*/IMAGE_TAG=$PREVIOUS_IMAGE_TAG/' /opt/mcm-orbit/.env && sudo sed -i -E '/^PREVIOUS_IMAGE_TAG=/d' /opt/mcm-orbit/.env && cd /opt/mcm-orbit && sudo docker compose -f compose.production.yml up -d --remove-orphans"
+          fi
+          ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            'cd /opt/mcm-orbit && sudo docker compose -f compose.production.yml logs --tail=100'
+          exit 1
