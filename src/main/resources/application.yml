@@ -43,6 +43,8 @@ app:
     read-timeout: ${OPENAI_READ_TIMEOUT:PT30S}
   arc:
     template-version: ${ARC_TEMPLATE_VERSION:arc-v1}
+  visit-memory:
+    template-version: ${VISIT_MEMORY_TEMPLATE_VERSION:visit-memory-v1}
 
 management:
   endpoints:

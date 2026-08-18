@@ -1,6 +1,7 @@
 // 고객이 보유한 Arc 목록과 상세 내용을 제공하는 HTTP Controller
 package com.lionthanflower.infrastructure.web.customer;
 
+import com.lionthanflower.application.customer.CustomerArcCommandService;
 import com.lionthanflower.application.customer.CustomerArcQueryService;
 import com.lionthanflower.domain.arc.entity.ArcStatus;
 import com.lionthanflower.domain.product.entity.ProductColor;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,9 +25,12 @@ public class CustomerArcController {
   private static final String CUSTOMER_TOKEN_COOKIE = "customer_token";
 
   private final CustomerArcQueryService service;
+  private final CustomerArcCommandService commandService;
 
-  public CustomerArcController(CustomerArcQueryService service) {
+  public CustomerArcController(
+      CustomerArcQueryService service, CustomerArcCommandService commandService) {
     this.service = service;
+    this.commandService = commandService;
   }
 
   @Operation(summary = "고객 Arc 목록 조회", description = "고객에게 공유되거나 최종 저장된 Arc 전체를 최신순으로 조회합니다.")
@@ -42,6 +47,15 @@ public class CustomerArcController {
       @PathVariable UUID arcId,
       @CookieValue(name = CUSTOMER_TOKEN_COOKIE, required = false) String rawToken) {
     return ApiResponse.success(ArcDetailResponse.from(service.getArc(arcId, rawToken)));
+  }
+
+  @Operation(summary = "고객 Arc 최종 저장", description = "고객이 공유된 Arc를 최종 저장하고 방문을 완료합니다.")
+  @PostMapping("/{arcId}/finalize")
+  public ApiResponse<ArcFinalizationResponse> finalizeArc(
+      @PathVariable UUID arcId,
+      @CookieValue(name = CUSTOMER_TOKEN_COOKIE, required = false) String rawToken) {
+    return ApiResponse.success(
+        ArcFinalizationResponse.from(commandService.finalizeArc(arcId, rawToken)));
   }
 
   public record ProductResponse(
@@ -102,6 +116,13 @@ public class CustomerArcController {
           arc.preferences(),
           arc.momentToRemember(),
           arc.purchasedProducts().stream().map(ProductResponse::from).toList());
+    }
+  }
+
+  public record ArcFinalizationResponse(UUID arcId, ArcStatus status, Instant finalizedAt) {
+
+    static ArcFinalizationResponse from(CustomerArcCommandService.ArcFinalization result) {
+      return new ArcFinalizationResponse(result.arcId(), result.status(), result.finalizedAt());
     }
   }
 }

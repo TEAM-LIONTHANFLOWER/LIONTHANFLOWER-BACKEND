@@ -99,8 +99,10 @@ public class VisitMemory extends BaseEntity {
   }
 
   public void startGeneration() {
-    if (status != VisitMemoryStatus.DRAFT && status != VisitMemoryStatus.FAILED) {
-      throw new IllegalStateException("초안 또는 생성 실패 상태에서만 다시 생성할 수 있습니다.");
+    if (status != VisitMemoryStatus.DRAFT
+        && status != VisitMemoryStatus.READY
+        && status != VisitMemoryStatus.FAILED) {
+      throw new IllegalStateException("초안, 생성 완료 또는 생성 실패 상태에서만 다시 생성할 수 있습니다.");
     }
     this.generatedContent = null;
     this.generatedAt = null;
@@ -109,15 +111,31 @@ public class VisitMemory extends BaseEntity {
     this.status = VisitMemoryStatus.GENERATING;
   }
 
-  public void complete(String generatedContent, Instant generatedAt) {
+  public void completeGeneration(String generatedContent, Instant generatedAt) {
     requireGenerating();
     String normalizedGeneratedContent = requireText(generatedContent, "Visit Memory 생성 결과");
     requireInstant(generatedAt, "Visit Memory 생성 완료 시각");
     this.generatedContent = normalizedGeneratedContent;
     this.generatedAt = generatedAt;
-    this.finalizedAt = generatedAt;
+    this.finalizedAt = null;
     this.failureCode = null;
+    this.status = VisitMemoryStatus.READY;
+  }
+
+  public void finalizeMemory(Instant finalizedAt) {
+    if (status != VisitMemoryStatus.READY) {
+      throw new IllegalStateException("생성이 완료된 Visit Memory만 최종 저장할 수 있습니다.");
+    }
+    requireInstant(finalizedAt, "Visit Memory 최종 저장 시각");
+    this.finalizedAt = finalizedAt;
     this.status = VisitMemoryStatus.FINALIZED;
+  }
+
+  public void replaceInput(VisitMemoryInputSnapshot inputSnapshot) {
+    if (status != VisitMemoryStatus.READY && status != VisitMemoryStatus.FAILED) {
+      throw new IllegalStateException("생성 완료 또는 생성 실패 상태에서만 입력을 수정할 수 있습니다.");
+    }
+    this.inputSnapshot = SnapshotJsonSerializer.serialize(inputSnapshot);
   }
 
   public void fail(String failureCode) {
