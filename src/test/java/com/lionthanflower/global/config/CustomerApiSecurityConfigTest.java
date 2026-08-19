@@ -3,6 +3,7 @@ package com.lionthanflower.global.config;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,6 +21,7 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(CustomerApiSecurityConfigTest.TestController.class)
@@ -81,6 +83,17 @@ class CustomerApiSecurityConfigTest {
         .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
   }
 
+  @Test
+  void 허용되지_않은_Origin의_쿠키_포함_POST_요청을_차단한다() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/customers/test")
+                .cookie(new jakarta.servlet.http.Cookie("customer_token", "known-token"))
+                .header(HttpHeaders.ORIGIN, "https://evil.example"))
+        .andExpect(status().isForbidden())
+        .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+  }
+
   @RestController
   static class TestController {
     @GetMapping("/actuator/health")
@@ -96,6 +109,11 @@ class CustomerApiSecurityConfigTest {
     @GetMapping("/api/customers/test")
     String customerApi() {
       return "customer";
+    }
+
+    @PostMapping("/api/customers/test")
+    String updateCustomerApi() {
+      return "updated";
     }
   }
 

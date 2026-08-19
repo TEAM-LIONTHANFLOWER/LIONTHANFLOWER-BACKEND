@@ -236,3 +236,20 @@ Run: `git diff --check && git status --short && git diff main...HEAD --stat`
 - [x] **Step 4: 포맷으로 인한 미커밋 변경이 있으면 해당 논리 커밋에 포함하고 관련 테스트를 재실행한다.**
 
 - [x] **Step 5: `docs/tasks/34/design.md`가 어떤 커밋에도 포함되지 않았는지 확인한다.**
+
+### Task 6: 보안 리뷰 후속 조치
+
+**Files:**
+- Modify: `src/main/resources/application.yml`
+- Modify: `src/main/resources/application-dev.yml`
+- Modify: `src/main/resources/application-prod.yml`
+- Create: `src/test/java/com/lionthanflower/global/config/CorsProfileConfigurationTest.java`
+- Modify: `src/test/java/com/lionthanflower/global/config/CustomerApiSecurityConfigTest.java`
+
+- [x] **Step 1: local·dev·prod가 각자 하나의 Origin만 허용하는 실패 테스트를 추가한다.**
+
+- [x] **Step 2: 비허용 Origin의 쿠키 포함 POST가 403으로 차단되는지 검증한다.**
+
+- [x] **Step 3: 기본·dev·prod CORS Origin을 환경별로 분리한다.**
+
+- [x] **Step 4: 관련 보안 및 설정 테스트를 다시 실행해 통과를 확인한다.**
