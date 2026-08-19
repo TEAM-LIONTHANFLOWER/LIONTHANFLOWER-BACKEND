@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class StaffVisitServiceTest {
@@ -105,8 +106,12 @@ class StaffVisitServiceTest {
     Staff staff = staff(LanguageCode.EN);
     UUID customerId = UUID.randomUUID();
     Visit visit = Visit.create(customerId, storeId);
+    Instant visitedAt = Instant.parse("2026-08-19T00:20:00Z");
+    Instant matchedAt = Instant.parse("2026-08-19T00:24:00Z");
     visit.completeOnboarding(
         LanguageCode.EN, InteractionStyle.STAFF_RECOMMENDATION, "다양한 컬러를 보고 싶어요");
+    visit.assignStaff(UUID.randomUUID(), matchedAt);
+    ReflectionTestUtils.setField(visit, "createdAt", visitedAt);
     Customer customer = mock(Customer.class);
     Arc firstArc = mock(Arc.class);
     Arc secondArc = mock(Arc.class);
@@ -130,6 +135,9 @@ class StaffVisitServiceTest {
     assertThat(result.getFirst().customerName()).isEqualTo("홍길동");
     assertThat(result.getFirst().additionalRequest()).isEqualTo("다양한 컬러를 보고 싶어요");
     assertThat(result.getFirst().arcCount()).isEqualTo(2);
+    assertThat(result.getFirst())
+        .hasFieldOrPropertyWithValue("matchedAt", matchedAt)
+        .hasFieldOrPropertyWithValue("visitedAt", visitedAt);
   }
 
   @Test
