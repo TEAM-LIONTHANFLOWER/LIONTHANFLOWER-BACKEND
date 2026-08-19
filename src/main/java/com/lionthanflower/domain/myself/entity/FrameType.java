@@ -3,5 +3,7 @@ package com.lionthanflower.domain.myself.entity;
 
 public enum FrameType {
   FRAME_1,
-  FRAME_2
+  FRAME_2,
+  FRAME_3,
+  FRAME_4
 }
