@@ -19,6 +19,7 @@ import com.lionthanflower.domain.visit.error.VisitErrorCode;
 import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.infrastructure.persistence.ArcRepository;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
+import com.lionthanflower.infrastructure.persistence.VisitMemoryRepository;
 import com.lionthanflower.infrastructure.persistence.VisitRepository;
 import java.time.Instant;
 import java.util.List;
@@ -38,13 +39,16 @@ class StaffVisitServiceTest {
   @Mock private VisitRepository visitRepository;
   @Mock private CustomerRepository customerRepository;
   @Mock private ArcRepository arcRepository;
+  @Mock private VisitMemoryRepository visitMemoryRepository;
 
   private StaffVisitService service;
   private UUID storeId;
 
   @BeforeEach
   void setUp() {
-    service = new StaffVisitService(visitRepository, customerRepository, arcRepository);
+    service =
+        new StaffVisitService(
+            visitRepository, customerRepository, arcRepository, visitMemoryRepository);
     storeId = UUID.randomUUID();
   }
 
@@ -138,6 +142,45 @@ class StaffVisitServiceTest {
     assertThat(result.getFirst())
         .hasFieldOrPropertyWithValue("matchedAt", matchedAt)
         .hasFieldOrPropertyWithValue("visitedAt", visitedAt);
+  }
+
+  @Test
+  void 현재_방문_목록에_방문별_Arc와_Visit_Memory_ID를_포함한다() {
+    Staff staff = staff(LanguageCode.EN);
+    UUID customerId = UUID.randomUUID();
+    Visit visit = visit(InteractionStyle.STAFF_RECOMMENDATION, LanguageCode.EN);
+    Arc arc = mock(Arc.class);
+    UUID arcId = UUID.randomUUID();
+    com.lionthanflower.domain.visitmemory.entity.VisitMemory visitMemory =
+        mock(com.lionthanflower.domain.visitmemory.entity.VisitMemory.class);
+    UUID visitMemoryId = UUID.randomUUID();
+    Customer customer = mock(Customer.class);
+
+    when(customer.getId()).thenReturn(customerId);
+    when(customer.getName()).thenReturn("홍길동");
+    when(arc.getId()).thenReturn(arcId);
+    when(arc.getVisitId()).thenReturn(visit.getId());
+    when(arc.getCustomerId()).thenReturn(customerId);
+    when(visitMemory.getId()).thenReturn(visitMemoryId);
+    when(visitMemory.getVisitId()).thenReturn(visit.getId());
+    when(visitRepository.findByStoreIdAndStatusNotIn(
+            org.mockito.ArgumentMatchers.eq(storeId), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(List.of(visit));
+    when(customerRepository.findAllById(Set.of(visit.getCustomerId())))
+        .thenReturn(List.of(customer));
+    when(arcRepository.findByCustomerIdInAndStatusIn(
+            org.mockito.ArgumentMatchers.eq(Set.of(visit.getCustomerId())),
+            org.mockito.ArgumentMatchers.any()))
+        .thenReturn(List.of(arc));
+    when(arcRepository.findByVisitIdIn(Set.of(visit.getId()))).thenReturn(List.of(arc));
+    when(visitMemoryRepository.findByVisitIdIn(Set.of(visit.getId())))
+        .thenReturn(List.of(visitMemory));
+
+    List<com.lionthanflower.application.staff.dto.VisitSummaryResponse> result =
+        service.getCurrentVisits(storeId);
+
+    assertThat(result.getFirst().arcId()).isEqualTo(arcId);
+    assertThat(result.getFirst().visitMemoryId()).isEqualTo(visitMemoryId);
   }
 
   @Test

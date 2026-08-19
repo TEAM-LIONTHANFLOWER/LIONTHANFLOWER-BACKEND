@@ -19,6 +19,8 @@ public interface ArcRepository extends JpaRepository<Arc, UUID> {
 
   Optional<Arc> findByVisitId(UUID visitId);
 
+  List<Arc> findByVisitIdIn(Collection<UUID> visitIds);
+
   long countByCustomerIdAndStatusIn(UUID customerId, Collection<ArcStatus> statuses);
 
   Optional<Arc> findByIdAndCustomerIdAndStatusIn(

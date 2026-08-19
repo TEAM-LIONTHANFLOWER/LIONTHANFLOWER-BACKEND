@@ -17,10 +17,17 @@ public record VisitSummaryResponse(
     UUID staffId,
     String additionalRequest,
     long arcCount,
+    UUID arcId,
+    UUID visitMemoryId,
     Instant matchedAt,
     Instant visitedAt) {
 
   public static VisitSummaryResponse of(Visit visit, String customerName, long arcCount) {
+    return of(visit, customerName, arcCount, null, null);
+  }
+
+  public static VisitSummaryResponse of(
+      Visit visit, String customerName, long arcCount, UUID arcId, UUID visitMemoryId) {
     return new VisitSummaryResponse(
         visit.getId(),
         customerName,
@@ -30,6 +37,8 @@ public record VisitSummaryResponse(
         visit.getStaffId(),
         visit.getAdditionalRequest(),
         arcCount,
+        arcId,
+        visitMemoryId,
         visit.getMatchedAt(),
         visit.getCreatedAt());
   }
