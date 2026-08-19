@@ -30,5 +30,7 @@ logging:
 app:
   customer-session:
     cookie-secure: ${CUSTOMER_SESSION_COOKIE_SECURE:true}
+    cookie-same-site: ${CUSTOMER_SESSION_COOKIE_SAME_SITE:None}
   staff-session:
     cookie-secure: ${STAFF_SESSION_COOKIE_SECURE:true}
+    cookie-same-site: ${STAFF_SESSION_COOKIE_SAME_SITE:None}

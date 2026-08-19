@@ -37,14 +37,17 @@ public class CustomerVisitController {
   private final CustomerVisitService service;
   private final boolean cookieSecure;
   private final long cookieMaxAge;
+  private final String cookieSameSite;
 
   public CustomerVisitController(
       CustomerVisitService service,
       @Value("${app.customer-session.cookie-secure:false}") boolean cookieSecure,
-      @Value("${app.customer-session.cookie-max-age:604800}") long cookieMaxAge) {
+      @Value("${app.customer-session.cookie-max-age:604800}") long cookieMaxAge,
+      @Value("${app.customer-session.cookie-same-site:Lax}") String cookieSameSite) {
     this.service = service;
     this.cookieSecure = cookieSecure;
     this.cookieMaxAge = cookieMaxAge;
+    this.cookieSameSite = cookieSameSite;
   }
 
   @Operation(summary = "고객 서비스 진입", description = "익명 고객을 식별하거나 생성하고 새로운 ONBOARDING 방문을 생성합니다.")
@@ -82,7 +85,7 @@ public class CustomerVisitController {
     return ResponseCookie.from(CUSTOMER_TOKEN_COOKIE, rawToken)
         .httpOnly(true)
         .secure(cookieSecure)
-        .sameSite("Lax")
+        .sameSite(cookieSameSite)
         .path("/")
         .maxAge(Duration.ofSeconds(cookieMaxAge))
         .build();

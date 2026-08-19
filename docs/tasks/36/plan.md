@@ -178,7 +178,7 @@ public record MatchingResult(
 - Consumes: `app.cors.allowed-origins`, `app.customer-session.cookie-same-site`, `app.staff-session.cookie-same-site`.
 - Produces: `/api/**` CORS 응답과 환경별 `SameSite` 쿠키.
 
-- [ ] **Step 1: 허용 Origin의 GET과 OPTIONS 응답 헤더, 비허용 Origin 차단을 Security 테스트에 작성한다.**
+- [x] **Step 1: 허용 Origin의 GET과 OPTIONS 응답 헤더, 비허용 Origin 차단을 Security 테스트에 작성한다.**
 
 ```java
 mockMvc.perform(options("/api/test")
@@ -189,13 +189,13 @@ mockMvc.perform(options("/api/test")
     .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
 ```
 
-- [ ] **Step 2: 고객과 직원 쿠키 테스트의 기대값을 `SameSite=None`으로 변경한다.**
+- [x] **Step 2: 고객과 직원 쿠키 테스트의 기대값을 `SameSite=None`으로 변경한다.**
 
-- [ ] **Step 3: 관련 테스트를 실행해 CORS 헤더 부재와 쿠키 기대값 불일치를 확인한다.**
+- [x] **Step 3: 관련 테스트를 실행해 CORS 헤더 부재와 쿠키 기대값 불일치를 확인한다.**
 
 Run: `./gradlew test --tests '*CustomerApiSecurityConfigTest' --tests '*CustomerVisitControllerTest' --tests '*StaffProfileControllerTest' --stacktrace --no-daemon`
 
-- [ ] **Step 4: `CorsConfigurationSource`를 SecurityFilterChain에 연결하고 `/api/**`에 credentials, Origin, 메서드 정책을 등록한다.**
+- [x] **Step 4: `CorsConfigurationSource`를 SecurityFilterChain에 연결하고 `/api/**`에 credentials, Origin, 메서드 정책을 등록한다.**
 
 ```java
 configuration.setAllowedOrigins(allowedOrigins);
@@ -205,13 +205,13 @@ configuration.setAllowCredentials(true);
 source.registerCorsConfiguration("/api/**", configuration);
 ```
 
-- [ ] **Step 5: local 기본 Origin, dev Pages Origin, prod Pages Origin과 dev/prod `SameSite=None; Secure` 설정을 추가한다.**
+- [x] **Step 5: local 기본 Origin, dev Pages Origin, prod Pages Origin과 dev/prod `SameSite=None; Secure` 설정을 추가한다.**
 
-- [ ] **Step 6: Controller가 설정된 SameSite 값을 사용하도록 최소 수정한다.**
+- [x] **Step 6: Controller가 설정된 SameSite 값을 사용하도록 최소 수정한다.**
 
-- [ ] **Step 7: 관련 테스트를 다시 실행해 통과를 확인한다.**
+- [x] **Step 7: 관련 테스트를 다시 실행해 통과를 확인한다.**
 
-- [ ] **Step 8: `36 fix: 웹 CORS와 교차 사이트 쿠키 설정`으로 커밋한다.**
+- [x] **Step 8: `36 fix: 웹 CORS와 교차 사이트 쿠키 설정`으로 커밋한다.**
 
 ### Task 5: 전체 회귀 검증
 

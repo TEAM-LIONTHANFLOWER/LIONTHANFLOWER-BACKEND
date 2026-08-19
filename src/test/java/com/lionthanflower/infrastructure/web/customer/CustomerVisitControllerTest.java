@@ -39,7 +39,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @TestPropertySource(
     properties = {
       "app.customer-api-security.enabled=false",
-      "app.customer-session.cookie-secure=true"
+      "app.customer-session.cookie-secure=true",
+      "app.customer-session.cookie-same-site=None"
     })
 class CustomerVisitControllerTest {
 
@@ -68,7 +69,7 @@ class CustomerVisitControllerTest {
                         containsString("Max-Age=604800"),
                         containsString("Secure"),
                         containsString("HttpOnly"),
-                        containsString("SameSite=Lax"))))
+                        containsString("SameSite=None"))))
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.visitId").value(visitId.toString()))
         .andExpect(jsonPath("$.data.customerName").isEmpty())

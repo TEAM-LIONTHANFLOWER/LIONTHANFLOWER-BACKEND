@@ -21,6 +21,8 @@ server:
   shutdown: graceful
 
 app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081,https://develop.mcm-orbit-n34.pages.dev,https://mcm-orbit-n34.pages.dev}
   customer-api-security:
     enabled: ${CUSTOMER_API_SECURITY_ENABLED:true}
   onboarding:
@@ -28,9 +30,11 @@ app:
   customer-session:
     cookie-secure: ${CUSTOMER_SESSION_COOKIE_SECURE:false}
     cookie-max-age: ${CUSTOMER_SESSION_COOKIE_MAX_AGE:604800}
+    cookie-same-site: ${CUSTOMER_SESSION_COOKIE_SAME_SITE:Lax}
   staff-session:
     cookie-secure: ${STAFF_SESSION_COOKIE_SECURE:false}
     cookie-max-age: ${STAFF_SESSION_COOKIE_MAX_AGE:31536000}
+    cookie-same-site: ${STAFF_SESSION_COOKIE_SAME_SITE:Lax}
   mcm-studio:
     frame-overlay-urls:
       FRAME_1: ${MCM_STUDIO_FRAME_1_OVERLAY_URL:}
