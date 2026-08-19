@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class StaffVisitService {
 
   private static final Set<VisitStatus> EXCLUDED_STATUSES =
-      Set.of(VisitStatus.COMPLETED, VisitStatus.CANCELED);
+      Set.of(VisitStatus.ONBOARDING, VisitStatus.COMPLETED, VisitStatus.CANCELED);
   private static final Set<ArcStatus> VISIBLE_ARC_STATUSES =
       Set.of(ArcStatus.SHARED, ArcStatus.FINALIZED);
 

@@ -4,6 +4,7 @@ package com.lionthanflower.application.staff;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.lionthanflower.application.staff.dto.StaffVisitAssignmentResponse;
@@ -129,6 +130,21 @@ class StaffVisitServiceTest {
     assertThat(result.getFirst().customerName()).isEqualTo("홍길동");
     assertThat(result.getFirst().additionalRequest()).isEqualTo("다양한 컬러를 보고 싶어요");
     assertThat(result.getFirst().arcCount()).isEqualTo(2);
+  }
+
+  @Test
+  void 온보딩_완료_전_고객은_현재_방문_목록에서_제외한다() {
+    when(visitRepository.findByStoreIdAndStatusNotIn(
+            org.mockito.ArgumentMatchers.eq(storeId), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(List.of());
+
+    List<com.lionthanflower.application.staff.dto.VisitSummaryResponse> result =
+        service.getCurrentVisits(storeId);
+
+    assertThat(result).isEmpty();
+    verify(visitRepository)
+        .findByStoreIdAndStatusNotIn(
+            storeId, Set.of(VisitStatus.ONBOARDING, VisitStatus.COMPLETED, VisitStatus.CANCELED));
   }
 
   private Staff staff(LanguageCode language) {
