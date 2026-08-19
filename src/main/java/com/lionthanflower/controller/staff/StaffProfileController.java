@@ -31,14 +31,17 @@ public class StaffProfileController {
   private final StaffProfileService staffProfileService;
   private final boolean cookieSecure;
   private final long cookieMaxAgeSeconds;
+  private final String cookieSameSite;
 
   public StaffProfileController(
       StaffProfileService staffProfileService,
       @Value("${app.staff-session.cookie-secure:false}") boolean cookieSecure,
-      @Value("${app.staff-session.cookie-max-age:31536000}") long cookieMaxAgeSeconds) {
+      @Value("${app.staff-session.cookie-max-age:31536000}") long cookieMaxAgeSeconds,
+      @Value("${app.staff-session.cookie-same-site:Lax}") String cookieSameSite) {
     this.staffProfileService = staffProfileService;
     this.cookieSecure = cookieSecure;
     this.cookieMaxAgeSeconds = cookieMaxAgeSeconds;
+    this.cookieSameSite = cookieSameSite;
   }
 
   @Operation(summary = "직원 프로필 등록", description = "근무 매장과 구사 언어를 등록하고 직원 인증 쿠키를 발급합니다.")
@@ -54,7 +57,7 @@ public class StaffProfileController {
             .httpOnly(true)
             .secure(cookieSecure)
             .path("/")
-            .sameSite("Lax")
+            .sameSite(cookieSameSite)
             .maxAge(Duration.ofSeconds(cookieMaxAgeSeconds))
             .build();
 

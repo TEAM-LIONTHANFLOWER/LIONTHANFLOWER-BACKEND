@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,14 +37,17 @@ public class CustomerVisitController {
   private final CustomerVisitService service;
   private final boolean cookieSecure;
   private final long cookieMaxAge;
+  private final String cookieSameSite;
 
   public CustomerVisitController(
       CustomerVisitService service,
       @Value("${app.customer-session.cookie-secure:false}") boolean cookieSecure,
-      @Value("${app.customer-session.cookie-max-age:604800}") long cookieMaxAge) {
+      @Value("${app.customer-session.cookie-max-age:604800}") long cookieMaxAge,
+      @Value("${app.customer-session.cookie-same-site:Lax}") String cookieSameSite) {
     this.service = service;
     this.cookieSecure = cookieSecure;
     this.cookieMaxAge = cookieMaxAge;
+    this.cookieSameSite = cookieSameSite;
   }
 
   @Operation(summary = "고객 서비스 진입", description = "익명 고객을 식별하거나 생성하고 새로운 ONBOARDING 방문을 생성합니다.")
@@ -69,11 +73,19 @@ public class CustomerVisitController {
     return ApiResponse.success(OnboardingResponse.from(result));
   }
 
+  @Operation(summary = "고객 매칭 상태 조회", description = "직원 추천을 선택한 고객이 담당 직원 배정 상태를 조회합니다.")
+  @GetMapping("/{visitId}/matching")
+  public ApiResponse<MatchingResponse> getMatching(
+      @PathVariable UUID visitId,
+      @CookieValue(name = CUSTOMER_TOKEN_COOKIE, required = false) String rawToken) {
+    return ApiResponse.success(MatchingResponse.from(service.getMatching(visitId, rawToken)));
+  }
+
   private ResponseCookie customerCookie(String rawToken) {
     return ResponseCookie.from(CUSTOMER_TOKEN_COOKIE, rawToken)
         .httpOnly(true)
         .secure(cookieSecure)
-        .sameSite("Lax")
+        .sameSite(cookieSameSite)
         .path("/")
         .maxAge(Duration.ofSeconds(cookieMaxAge))
         .build();
@@ -104,6 +116,23 @@ public class CustomerVisitController {
 
     static OnboardingResponse from(CustomerVisitService.OnboardingResult result) {
       return new OnboardingResponse(result.visitId(), result.status());
+    }
+  }
+
+  public record MatchingResponse(
+      UUID visitId,
+      VisitStatus status,
+      UUID staffId,
+      String staffName,
+      java.time.Instant matchedAt) {
+
+    static MatchingResponse from(CustomerVisitService.MatchingResult result) {
+      return new MatchingResponse(
+          result.visitId(),
+          result.status(),
+          result.staffId(),
+          result.staffName(),
+          result.matchedAt());
     }
   }
 }

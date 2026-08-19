@@ -44,7 +44,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(StaffProfileController.class)
 @Import({GlobalExceptionHandler.class, CustomerApiSecurityConfig.class})
-@TestPropertySource(properties = {"app.staff-session.cookie-secure=true"})
+@TestPropertySource(
+    properties = {
+      "app.staff-session.cookie-secure=true",
+      "app.staff-session.cookie-same-site=None"
+    })
 class StaffProfileControllerTest {
 
   @Autowired private MockMvc mockMvc;
@@ -84,7 +88,7 @@ class StaffProfileControllerTest {
                         containsString("Max-Age=31536000"),
                         containsString("Secure"),
                         containsString("HttpOnly"),
-                        containsString("SameSite=Lax"))))
+                        containsString("SameSite=None"))))
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.staffId").value(staffId.toString()))
         .andExpect(jsonPath("$.data.storeId").value(storeId.toString()))
