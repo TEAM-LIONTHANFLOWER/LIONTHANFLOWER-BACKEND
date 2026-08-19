@@ -133,7 +133,7 @@ public ApiResponse<List<StoreResponse>> search(@RequestParam(defaultValue = "") 
 - Produces: `CustomerVisitService.getMatching(UUID visitId, String rawToken): MatchingResult`.
 - Produces: `GET /api/customers/visits/{visitId}/matching` 응답의 `visitId`, `status`, `staffId`, `staffName`, `matchedAt`.
 
-- [ ] **Step 1: 소유 고객의 대기 상태와 직원 배정 완료 상태를 검증하는 Service 테스트를 작성한다.**
+- [x] **Step 1: 소유 고객의 대기 상태와 직원 배정 완료 상태를 검증하는 Service 테스트를 작성한다.**
 
 ```java
 MatchingResult result = service.getMatching(visit.getId(), "known-token");
@@ -142,24 +142,24 @@ assertThat(result.staffName()).isEqualTo("김형진");
 assertThat(result.matchedAt()).isNotNull();
 ```
 
-- [ ] **Step 2: 토큰 누락과 다른 고객의 방문이 각각 400과 404가 되는 Service 테스트를 작성한다.**
+- [x] **Step 2: 토큰 누락과 다른 고객의 방문이 각각 400과 404가 되는 Service 테스트를 작성한다.**
 
-- [ ] **Step 3: 고객 쿠키로 호출하는 GET API 응답과 `@Operation`을 검증하는 Controller 테스트를 작성한다.**
+- [x] **Step 3: 고객 쿠키로 호출하는 GET API 응답과 `@Operation`을 검증하는 Controller 테스트를 작성한다.**
 
-- [ ] **Step 4: 관련 테스트를 실행해 메서드 부재로 실패하는지 확인한다.**
+- [x] **Step 4: 관련 테스트를 실행해 메서드 부재로 실패하는지 확인한다.**
 
 Run: `./gradlew test --tests '*CustomerVisitServiceTest' --tests '*CustomerVisitControllerTest' --stacktrace --no-daemon`
 
-- [ ] **Step 5: 기존 고객 토큰 및 방문 소유권 확인 로직을 재사용해 Service와 Controller를 구현한다.**
+- [x] **Step 5: 기존 고객 토큰 및 방문 소유권 확인 로직을 재사용해 Service와 Controller를 구현한다.**
 
 ```java
 public record MatchingResult(
     UUID visitId, VisitStatus status, UUID staffId, String staffName, Instant matchedAt) {}
 ```
 
-- [ ] **Step 6: 관련 테스트를 다시 실행해 통과를 확인한다.**
+- [x] **Step 6: 관련 테스트를 다시 실행해 통과를 확인한다.**
 
-- [ ] **Step 7: `36 feat: 고객 매칭 상태 조회 API 추가`로 커밋한다.**
+- [x] **Step 7: `36 feat: 고객 매칭 상태 조회 API 추가`로 커밋한다.**
 
 ### Task 4: 환경별 CORS와 교차 사이트 쿠키
 

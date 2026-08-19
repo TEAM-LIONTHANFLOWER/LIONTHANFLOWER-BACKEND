@@ -1,6 +1,7 @@
 // 고객 서비스 진입과 온보딩 진행 HTTP API를 검증하는 테스트
 package com.lionthanflower.infrastructure.web.customer;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -8,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -16,6 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.lionthanflower.application.customer.CustomerVisitService;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
 import com.lionthanflower.global.error.GlobalExceptionHandler;
+import io.swagger.v3.oas.annotations.Operation;
+import java.lang.reflect.Method;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -156,5 +161,39 @@ class CustomerVisitControllerTest {
                 .content("name"))
         .andExpect(status().isUnsupportedMediaType())
         .andExpect(jsonPath("$.error.code").value("COMMON-415"));
+  }
+
+  @Test
+  void 고객은_자신의_직원_매칭_상태를_조회한다() throws Exception {
+    UUID visitId = UUID.randomUUID();
+    UUID staffId = UUID.randomUUID();
+    Instant matchedAt = Instant.parse("2026-08-19T01:00:00Z");
+    when(service.getMatching(visitId, "known-token"))
+        .thenReturn(
+            new CustomerVisitService.MatchingResult(
+                visitId, VisitStatus.ACTIVE, staffId, "김형진", matchedAt));
+
+    mockMvc
+        .perform(
+            get("/api/customers/visits/{visitId}/matching", visitId)
+                .cookie(new jakarta.servlet.http.Cookie("customer_token", "known-token")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.visitId").value(visitId.toString()))
+        .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.data.staffId").value(staffId.toString()))
+        .andExpect(jsonPath("$.data.staffName").value("김형진"))
+        .andExpect(jsonPath("$.data.matchedAt").value(matchedAt.toString()));
+  }
+
+  @Test
+  void 고객_매칭_조회_API에_OpenAPI_설명이_있다() throws NoSuchMethodException {
+    Method method =
+        CustomerVisitController.class.getMethod("getMatching", UUID.class, String.class);
+
+    Operation operation = method.getAnnotation(Operation.class);
+
+    assertThat(operation).isNotNull();
+    assertThat(operation.summary()).isEqualTo("고객 매칭 상태 조회");
   }
 }

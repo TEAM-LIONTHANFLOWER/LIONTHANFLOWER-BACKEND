@@ -12,6 +12,8 @@ import static org.mockito.Mockito.when;
 import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.customer.entity.Customer;
 import com.lionthanflower.domain.store.entity.Store;
+import com.lionthanflower.domain.store.entity.Staff;
+import com.lionthanflower.domain.store.repository.StaffRepository;
 import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
@@ -20,7 +22,10 @@ import com.lionthanflower.global.error.CommonErrorCode;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
 import com.lionthanflower.infrastructure.persistence.StoreRepository;
 import com.lionthanflower.infrastructure.persistence.VisitRepository;
+import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +40,7 @@ class CustomerVisitServiceTest {
   @Mock private CustomerRepository customerRepository;
   @Mock private StoreRepository storeRepository;
   @Mock private VisitRepository visitRepository;
+  @Mock private StaffRepository staffRepository;
 
   private CustomerTokenManager tokenManager;
   private CustomerVisitService service;
@@ -45,7 +51,12 @@ class CustomerVisitServiceTest {
     tokenManager = new CustomerTokenManager();
     service =
         new CustomerVisitService(
-            customerRepository, storeRepository, visitRepository, tokenManager, STORE_CODE);
+            customerRepository,
+            storeRepository,
+            visitRepository,
+            staffRepository,
+            tokenManager,
+            STORE_CODE);
     store = Store.create("MCM Seoul", STORE_CODE, "KR");
   }
 
@@ -203,5 +214,68 @@ class CustomerVisitServiceTest {
         .isInstanceOf(BusinessException.class)
         .extracting(exception -> ((BusinessException) exception).errorCode())
         .isEqualTo(CommonErrorCode.INVALID_INPUT_VALUE);
+  }
+
+  @Test
+  void 고객은_직원_추천_방문의_대기_상태를_조회한다() {
+    Customer customer = Customer.create(tokenManager.hash("known-token"));
+    Visit visit = Visit.create(customer.getId(), store.getId());
+    visit.completeOnboarding(LanguageCode.KO, InteractionStyle.STAFF_RECOMMENDATION, null);
+    when(customerRepository.findByTokenHash(tokenManager.hash("known-token")))
+        .thenReturn(Optional.of(customer));
+    when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+
+    CustomerVisitService.MatchingResult result =
+        service.getMatching(visit.getId(), "known-token");
+
+    assertThat(result.status()).isEqualTo(VisitStatus.WAITING_FOR_STAFF);
+    assertThat(result.staffId()).isNull();
+    assertThat(result.staffName()).isNull();
+    assertThat(result.matchedAt()).isNull();
+  }
+
+  @Test
+  void 고객은_배정된_직원과_매칭_시각을_조회한다() {
+    Customer customer = Customer.create(tokenManager.hash("known-token"));
+    Visit visit = Visit.create(customer.getId(), store.getId());
+    visit.completeOnboarding(LanguageCode.KO, InteractionStyle.STAFF_RECOMMENDATION, null);
+    Staff staff =
+        Staff.create(store.getId(), "김형진", "hashed-token", Set.of(LanguageCode.KO));
+    Instant matchedAt = Instant.parse("2026-08-19T01:00:00Z");
+    visit.assignStaff(staff.getId(), matchedAt);
+    when(customerRepository.findByTokenHash(tokenManager.hash("known-token")))
+        .thenReturn(Optional.of(customer));
+    when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+    when(staffRepository.findById(staff.getId())).thenReturn(Optional.of(staff));
+
+    CustomerVisitService.MatchingResult result =
+        service.getMatching(visit.getId(), "known-token");
+
+    assertThat(result.status()).isEqualTo(VisitStatus.ACTIVE);
+    assertThat(result.staffId()).isEqualTo(staff.getId());
+    assertThat(result.staffName()).isEqualTo("김형진");
+    assertThat(result.matchedAt()).isEqualTo(matchedAt);
+  }
+
+  @Test
+  void 고객_토큰이_없으면_매칭_상태를_조회할_수_없다() {
+    assertThatThrownBy(() -> service.getMatching(UUID.randomUUID(), null))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).errorCode())
+        .isEqualTo(CommonErrorCode.INVALID_INPUT_VALUE);
+  }
+
+  @Test
+  void 다른_고객의_매칭_상태는_찾을_수_없는_것처럼_처리한다() {
+    Customer customer = Customer.create(tokenManager.hash("known-token"));
+    Visit otherVisit = Visit.create(UUID.randomUUID(), store.getId());
+    when(customerRepository.findByTokenHash(tokenManager.hash("known-token")))
+        .thenReturn(Optional.of(customer));
+    when(visitRepository.findById(otherVisit.getId())).thenReturn(Optional.of(otherVisit));
+
+    assertThatThrownBy(() -> service.getMatching(otherVisit.getId(), "known-token"))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).errorCode())
+        .isEqualTo(CommonErrorCode.NOT_FOUND);
   }
 }

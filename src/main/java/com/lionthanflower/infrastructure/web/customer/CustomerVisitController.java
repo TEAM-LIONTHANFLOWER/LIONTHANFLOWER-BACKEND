@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -69,6 +70,14 @@ public class CustomerVisitController {
     return ApiResponse.success(OnboardingResponse.from(result));
   }
 
+  @Operation(summary = "고객 매칭 상태 조회", description = "직원 추천을 선택한 고객이 담당 직원 배정 상태를 조회합니다.")
+  @GetMapping("/{visitId}/matching")
+  public ApiResponse<MatchingResponse> getMatching(
+      @PathVariable UUID visitId,
+      @CookieValue(name = CUSTOMER_TOKEN_COOKIE, required = false) String rawToken) {
+    return ApiResponse.success(MatchingResponse.from(service.getMatching(visitId, rawToken)));
+  }
+
   private ResponseCookie customerCookie(String rawToken) {
     return ResponseCookie.from(CUSTOMER_TOKEN_COOKIE, rawToken)
         .httpOnly(true)
@@ -104,6 +113,23 @@ public class CustomerVisitController {
 
     static OnboardingResponse from(CustomerVisitService.OnboardingResult result) {
       return new OnboardingResponse(result.visitId(), result.status());
+    }
+  }
+
+  public record MatchingResponse(
+      UUID visitId,
+      VisitStatus status,
+      UUID staffId,
+      String staffName,
+      java.time.Instant matchedAt) {
+
+    static MatchingResponse from(CustomerVisitService.MatchingResult result) {
+      return new MatchingResponse(
+          result.visitId(),
+          result.status(),
+          result.staffId(),
+          result.staffName(),
+          result.matchedAt());
     }
   }
 }

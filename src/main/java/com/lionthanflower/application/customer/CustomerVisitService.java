@@ -4,6 +4,8 @@ package com.lionthanflower.application.customer;
 import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.customer.entity.Customer;
 import com.lionthanflower.domain.store.entity.Store;
+import com.lionthanflower.domain.store.entity.Staff;
+import com.lionthanflower.domain.store.repository.StaffRepository;
 import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
@@ -12,6 +14,7 @@ import com.lionthanflower.global.error.CommonErrorCode;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
 import com.lionthanflower.infrastructure.persistence.StoreRepository;
 import com.lionthanflower.infrastructure.persistence.VisitRepository;
+import java.time.Instant;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ public class CustomerVisitService {
   private final CustomerRepository customerRepository;
   private final StoreRepository storeRepository;
   private final VisitRepository visitRepository;
+  private final StaffRepository staffRepository;
   private final CustomerTokenManager tokenManager;
   private final String storeCode;
 
@@ -31,11 +35,13 @@ public class CustomerVisitService {
       CustomerRepository customerRepository,
       StoreRepository storeRepository,
       VisitRepository visitRepository,
+      StaffRepository staffRepository,
       CustomerTokenManager tokenManager,
       @Value("${app.onboarding.store-code:MCM-SEOUL}") String storeCode) {
     this.customerRepository = customerRepository;
     this.storeRepository = storeRepository;
     this.visitRepository = visitRepository;
+    this.staffRepository = staffRepository;
     this.tokenManager = tokenManager;
     this.storeCode = storeCode;
   }
@@ -53,19 +59,8 @@ public class CustomerVisitService {
 
   public OnboardingResult progressOnboarding(
       UUID visitId, String rawToken, OnboardingCommand command) {
-    if (rawToken == null || rawToken.isBlank()) {
-      throw new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE);
-    }
-
-    Customer customer =
-        customerRepository
-            .findByTokenHash(tokenManager.hash(rawToken))
-            .orElseThrow(() -> new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE));
-    Visit visit =
-        visitRepository
-            .findById(visitId)
-            .filter(found -> found.getCustomerId().equals(customer.getId()))
-            .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
+    Customer customer = resolveAuthenticatedCustomer(rawToken);
+    Visit visit = resolveOwnedVisit(visitId, customer);
     if (visit.getStatus() != VisitStatus.ONBOARDING) {
       throw new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE);
     }
@@ -74,6 +69,36 @@ public class CustomerVisitService {
     visit.completeOnboarding(
         command.serviceLanguage(), command.interactionStyle(), command.additionalRequest());
     return new OnboardingResult(visit.getId(), visit.getStatus());
+  }
+
+  @Transactional(readOnly = true)
+  public MatchingResult getMatching(UUID visitId, String rawToken) {
+    Customer customer = resolveAuthenticatedCustomer(rawToken);
+    Visit visit = resolveOwnedVisit(visitId, customer);
+    Staff staff =
+        visit.getStaffId() == null ? null : staffRepository.findById(visit.getStaffId()).orElse(null);
+    return new MatchingResult(
+        visit.getId(),
+        visit.getStatus(),
+        visit.getStaffId(),
+        staff == null ? null : staff.getName(),
+        visit.getMatchedAt());
+  }
+
+  private Customer resolveAuthenticatedCustomer(String rawToken) {
+    if (rawToken == null || rawToken.isBlank()) {
+      throw new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE);
+    }
+    return customerRepository
+        .findByTokenHash(tokenManager.hash(rawToken))
+        .orElseThrow(() -> new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE));
+  }
+
+  private Visit resolveOwnedVisit(UUID visitId, Customer customer) {
+    return visitRepository
+        .findById(visitId)
+        .filter(found -> found.getCustomerId().equals(customer.getId()))
+        .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
   }
 
   private CustomerSession resolveCustomer(String rawToken) {
@@ -102,4 +127,7 @@ public class CustomerVisitService {
       String additionalRequest) {}
 
   public record OnboardingResult(UUID visitId, VisitStatus status) {}
+
+  public record MatchingResult(
+      UUID visitId, VisitStatus status, UUID staffId, String staffName, Instant matchedAt) {}
 }
