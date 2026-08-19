@@ -3,8 +3,8 @@ package com.lionthanflower.application.customer;
 
 import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.customer.entity.Customer;
-import com.lionthanflower.domain.store.entity.Store;
 import com.lionthanflower.domain.store.entity.Staff;
+import com.lionthanflower.domain.store.entity.Store;
 import com.lionthanflower.domain.store.repository.StaffRepository;
 import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
@@ -76,7 +76,9 @@ public class CustomerVisitService {
     Customer customer = resolveAuthenticatedCustomer(rawToken);
     Visit visit = resolveOwnedVisit(visitId, customer);
     Staff staff =
-        visit.getStaffId() == null ? null : staffRepository.findById(visit.getStaffId()).orElse(null);
+        visit.getStaffId() == null
+            ? null
+            : staffRepository.findById(visit.getStaffId()).orElse(null);
     return new MatchingResult(
         visit.getId(),
         visit.getStatus(),

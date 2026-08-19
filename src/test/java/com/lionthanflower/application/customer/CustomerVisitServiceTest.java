@@ -11,8 +11,8 @@ import static org.mockito.Mockito.when;
 
 import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.customer.entity.Customer;
-import com.lionthanflower.domain.store.entity.Store;
 import com.lionthanflower.domain.store.entity.Staff;
+import com.lionthanflower.domain.store.entity.Store;
 import com.lionthanflower.domain.store.repository.StaffRepository;
 import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
@@ -225,8 +225,7 @@ class CustomerVisitServiceTest {
         .thenReturn(Optional.of(customer));
     when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
 
-    CustomerVisitService.MatchingResult result =
-        service.getMatching(visit.getId(), "known-token");
+    CustomerVisitService.MatchingResult result = service.getMatching(visit.getId(), "known-token");
 
     assertThat(result.status()).isEqualTo(VisitStatus.WAITING_FOR_STAFF);
     assertThat(result.staffId()).isNull();
@@ -239,8 +238,7 @@ class CustomerVisitServiceTest {
     Customer customer = Customer.create(tokenManager.hash("known-token"));
     Visit visit = Visit.create(customer.getId(), store.getId());
     visit.completeOnboarding(LanguageCode.KO, InteractionStyle.STAFF_RECOMMENDATION, null);
-    Staff staff =
-        Staff.create(store.getId(), "김형진", "hashed-token", Set.of(LanguageCode.KO));
+    Staff staff = Staff.create(store.getId(), "김형진", "hashed-token", Set.of(LanguageCode.KO));
     Instant matchedAt = Instant.parse("2026-08-19T01:00:00Z");
     visit.assignStaff(staff.getId(), matchedAt);
     when(customerRepository.findByTokenHash(tokenManager.hash("known-token")))
@@ -248,8 +246,7 @@ class CustomerVisitServiceTest {
     when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
     when(staffRepository.findById(staff.getId())).thenReturn(Optional.of(staff));
 
-    CustomerVisitService.MatchingResult result =
-        service.getMatching(visit.getId(), "known-token");
+    CustomerVisitService.MatchingResult result = service.getMatching(visit.getId(), "known-token");
 
     assertThat(result.status()).isEqualTo(VisitStatus.ACTIVE);
     assertThat(result.staffId()).isEqualTo(staff.getId());

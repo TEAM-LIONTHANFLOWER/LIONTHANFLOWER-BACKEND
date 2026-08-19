@@ -21,8 +21,7 @@ public class StoreController {
 
   @Operation(summary = "매장 검색", description = "직원 프로필 등록 전에 이름 또는 코드로 매장을 검색합니다.")
   @GetMapping("/api/stores")
-  public ApiResponse<List<StoreSummary>> search(
-      @RequestParam(defaultValue = "") String query) {
+  public ApiResponse<List<StoreSummary>> search(@RequestParam(defaultValue = "") String query) {
     return ApiResponse.success(storeQueryService.search(query));
   }
 }

@@ -221,18 +221,18 @@ source.registerCorsConfiguration("/api/**", configuration);
 **Interfaces:**
 - Produces: 전체 테스트 통과와 범위가 제한된 최종 diff.
 
-- [ ] **Step 1: Spotless를 실행해 프로젝트 포맷을 적용한다.**
+- [x] **Step 1: Spotless를 실행해 프로젝트 포맷을 적용한다.**
 
 Run: `./gradlew spotlessApply --no-daemon`
 
-- [ ] **Step 2: 전체 테스트를 실행한다.**
+- [x] **Step 2: 전체 테스트를 실행한다.**
 
 Run: `./gradlew test --stacktrace --no-daemon`
 
-- [ ] **Step 3: diff whitespace와 변경 범위를 검증한다.**
+- [x] **Step 3: diff whitespace와 변경 범위를 검증한다.**
 
 Run: `git diff --check && git status --short && git diff main...HEAD --stat`
 
-- [ ] **Step 4: 포맷으로 인한 미커밋 변경이 있으면 해당 논리 커밋에 포함하고 관련 테스트를 재실행한다.**
+- [x] **Step 4: 포맷으로 인한 미커밋 변경이 있으면 해당 논리 커밋에 포함하고 관련 테스트를 재실행한다.**
 
-- [ ] **Step 5: `docs/tasks/34/design.md`가 어떤 커밋에도 포함되지 않았는지 확인한다.**
+- [x] **Step 5: `docs/tasks/34/design.md`가 어떤 커밋에도 포함되지 않았는지 확인한다.**

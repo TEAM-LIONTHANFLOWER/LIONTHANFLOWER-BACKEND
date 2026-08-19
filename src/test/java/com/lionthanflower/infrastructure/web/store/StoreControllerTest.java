@@ -35,9 +35,7 @@ class StoreControllerTest {
     UUID storeId = UUID.randomUUID();
     when(storeQueryService.search("seoul"))
         .thenReturn(
-            List.of(
-                new StoreQueryService.StoreSummary(
-                    storeId, "MCM Seoul", "MCM-SEOUL", "KR")));
+            List.of(new StoreQueryService.StoreSummary(storeId, "MCM Seoul", "MCM-SEOUL", "KR")));
 
     mockMvc
         .perform(get("/api/stores").queryParam("query", "seoul"))
