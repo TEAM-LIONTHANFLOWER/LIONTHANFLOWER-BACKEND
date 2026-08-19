@@ -20,7 +20,11 @@ public record VisitSummaryResponse(
     UUID arcId,
     UUID visitMemoryId,
     Instant matchedAt,
-    Instant visitedAt) {
+    Instant visitedAt,
+    Instant completedAt,
+    VisitResultType resultType,
+    UUID resultId,
+    Integer arcNumber) {
 
   public static VisitSummaryResponse of(Visit visit, String customerName, long arcCount) {
     return of(visit, customerName, arcCount, null, null);
@@ -28,6 +32,18 @@ public record VisitSummaryResponse(
 
   public static VisitSummaryResponse of(
       Visit visit, String customerName, long arcCount, UUID arcId, UUID visitMemoryId) {
+    return of(visit, customerName, arcCount, arcId, visitMemoryId, null, null, null);
+  }
+
+  public static VisitSummaryResponse of(
+      Visit visit,
+      String customerName,
+      long arcCount,
+      UUID arcId,
+      UUID visitMemoryId,
+      VisitResultType resultType,
+      UUID resultId,
+      Integer arcNumber) {
     return new VisitSummaryResponse(
         visit.getId(),
         customerName,
@@ -40,6 +56,10 @@ public record VisitSummaryResponse(
         arcId,
         visitMemoryId,
         visit.getMatchedAt(),
-        visit.getCreatedAt());
+        visit.getCreatedAt(),
+        visit.getCompletedAt(),
+        resultType,
+        resultId,
+        arcNumber);
   }
 }

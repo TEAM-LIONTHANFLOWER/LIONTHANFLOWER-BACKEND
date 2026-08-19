@@ -10,7 +10,9 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface VisitRepository extends JpaRepository<Visit, UUID> {
-  List<Visit> findByStoreIdAndStatusNotIn(UUID storeId, Collection<VisitStatus> excludedStatuses);
+  List<Visit> findByStoreIdAndStatusIn(UUID storeId, Collection<VisitStatus> statuses);
+
+  List<Visit> findByStoreIdAndStaffIdAndStatus(UUID storeId, UUID staffId, VisitStatus status);
 
   Optional<Visit> findByIdAndStoreId(UUID id, UUID storeId);
 }
