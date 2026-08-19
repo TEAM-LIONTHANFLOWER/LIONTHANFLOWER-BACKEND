@@ -18,9 +18,9 @@ class StudioFrameServiceTest {
             StudioFrameService.StudioFrame::displayName,
             StudioFrameService.StudioFrame::overlayImageUrl)
         .containsExactly(
-            tuple("FRAME_1", "MCM Frame 1", "/mcm-studio/Frame_1.png"),
-            tuple("FRAME_2", "MCM Frame 2", "/mcm-studio/Frame_2.png"),
-            tuple("FRAME_3", "MCM Frame 3", "/mcm-studio/Frame_3.png"),
-            tuple("FRAME_4", "MCM Frame 4", "/mcm-studio/Frame_4.png"));
+            tuple("FRAME_1", "MCM Frame 1", "/mcm-studio/Frame_1.svg"),
+            tuple("FRAME_2", "MCM Frame 2", "/mcm-studio/Frame_2.svg"),
+            tuple("FRAME_3", "MCM Frame 3", "/mcm-studio/Frame_3.svg"),
+            tuple("FRAME_4", "MCM Frame 4", "/mcm-studio/Frame_4.svg"));
   }
 }

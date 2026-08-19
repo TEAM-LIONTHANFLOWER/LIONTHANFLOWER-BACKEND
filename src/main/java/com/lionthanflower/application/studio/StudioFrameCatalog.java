@@ -10,10 +10,10 @@ public class StudioFrameCatalog {
 
   private static final List<FrameDefinition> FRAMES =
       List.of(
-          new FrameDefinition(FrameType.FRAME_1, "MCM Frame 1", "/mcm-studio/Frame_1.png"),
-          new FrameDefinition(FrameType.FRAME_2, "MCM Frame 2", "/mcm-studio/Frame_2.png"),
-          new FrameDefinition(FrameType.FRAME_3, "MCM Frame 3", "/mcm-studio/Frame_3.png"),
-          new FrameDefinition(FrameType.FRAME_4, "MCM Frame 4", "/mcm-studio/Frame_4.png"));
+          new FrameDefinition(FrameType.FRAME_1, "MCM Frame 1", "/mcm-studio/Frame_1.svg"),
+          new FrameDefinition(FrameType.FRAME_2, "MCM Frame 2", "/mcm-studio/Frame_2.svg"),
+          new FrameDefinition(FrameType.FRAME_3, "MCM Frame 3", "/mcm-studio/Frame_3.svg"),
+          new FrameDefinition(FrameType.FRAME_4, "MCM Frame 4", "/mcm-studio/Frame_4.svg"));
 
   public List<FrameDefinition> frames() {
     return FRAMES;
