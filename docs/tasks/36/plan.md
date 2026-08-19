@@ -91,7 +91,7 @@ public enum LanguageCode {
 - Produces: `StoreQueryService.search(String query): List<StoreSummary>`.
 - Produces: 공개 `GET /api/stores?query={query}` 응답의 `storeId`, `name`, `code`, `countryCode`.
 
-- [ ] **Step 1: 이름 또는 코드 검색과 최대 20건 정렬을 검증하는 Service 테스트를 작성한다.**
+- [x] **Step 1: 이름 또는 코드 검색과 최대 20건 정렬을 검증하는 Service 테스트를 작성한다.**
 
 ```java
 when(storeRepository.findTop20ByNameContainingIgnoreCaseOrCodeContainingIgnoreCaseOrderByNameAsc("seoul", "seoul"))
@@ -99,13 +99,13 @@ when(storeRepository.findTop20ByNameContainingIgnoreCaseOrCodeContainingIgnoreCa
 assertThat(service.search(" seoul ")).extracting(StoreSummary::code).containsExactly("MCM-SEOUL");
 ```
 
-- [ ] **Step 2: 미인증 공개 GET 응답과 OpenAPI 설명을 검증하는 Controller 테스트를 작성한다.**
+- [x] **Step 2: 미인증 공개 GET 응답과 OpenAPI 설명을 검증하는 Controller 테스트를 작성한다.**
 
-- [ ] **Step 3: 새 테스트를 실행해 컴파일 또는 Bean 부재로 실패하는지 확인한다.**
+- [x] **Step 3: 새 테스트를 실행해 컴파일 또는 Bean 부재로 실패하는지 확인한다.**
 
 Run: `./gradlew test --tests '*StoreQueryServiceTest' --tests '*StoreControllerTest' --stacktrace --no-daemon`
 
-- [ ] **Step 4: Repository 파생 쿼리, `StoreQueryService`, `StoreController`와 `/api/stores` 보안 허용을 구현한다.**
+- [x] **Step 4: Repository 파생 쿼리, `StoreQueryService`, `StoreController`와 `/api/stores` 보안 허용을 구현한다.**
 
 ```java
 List<Store> findTop20ByNameContainingIgnoreCaseOrCodeContainingIgnoreCaseOrderByNameAsc(
@@ -117,9 +117,9 @@ List<Store> findTop20ByNameContainingIgnoreCaseOrCodeContainingIgnoreCaseOrderBy
 public ApiResponse<List<StoreResponse>> search(@RequestParam(defaultValue = "") String query)
 ```
 
-- [ ] **Step 5: 관련 테스트를 다시 실행해 통과를 확인한다.**
+- [x] **Step 5: 관련 테스트를 다시 실행해 통과를 확인한다.**
 
-- [ ] **Step 6: `36 feat: 공개 매장 검색 API 추가`로 커밋한다.**
+- [x] **Step 6: `36 feat: 공개 매장 검색 API 추가`로 커밋한다.**
 
 ### Task 3: 고객 매칭 상태 조회 API
 

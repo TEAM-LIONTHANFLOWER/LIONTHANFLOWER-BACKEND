@@ -31,7 +31,8 @@ public class CustomerApiSecurityConfig {
     http.csrf(csrf -> csrf.ignoringRequestMatchers("/api/customers/**", "/api/staff/**"))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/actuator/health", "/api/customers/**", "/api/staff/**")
+                auth.requestMatchers(
+                        "/actuator/health", "/api/customers/**", "/api/staff/**", "/api/stores")
                     .permitAll()
                     .anyRequest()
                     .authenticated());
