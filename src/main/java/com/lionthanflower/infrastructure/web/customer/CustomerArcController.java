@@ -110,5 +110,4 @@ public class CustomerArcController {
           arc.purchasedProducts().stream().map(ProductResponse::from).toList());
     }
   }
-
 }

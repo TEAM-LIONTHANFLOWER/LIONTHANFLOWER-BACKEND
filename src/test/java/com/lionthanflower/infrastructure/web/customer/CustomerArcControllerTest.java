@@ -128,5 +128,4 @@ class CustomerArcControllerTest {
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("COMMON-401"));
   }
-
 }

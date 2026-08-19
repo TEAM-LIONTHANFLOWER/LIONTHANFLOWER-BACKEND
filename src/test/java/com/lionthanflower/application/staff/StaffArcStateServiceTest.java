@@ -157,8 +157,7 @@ class StaffArcStateServiceTest {
     Purchase purchase = Purchase.create(visit.getId());
     Arc arc = Arc.create(visit.getId(), purchase.getId(), visit.getCustomerId(), staff.getId());
     ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staff.getId());
-    ArcGeneratedContent content =
-        new ArcGeneratedContent("오늘의 순간", List.of("실용성"), "기억할 순간");
+    ArcGeneratedContent content = new ArcGeneratedContent("오늘의 순간", List.of("실용성"), "기억할 순간");
     when(arcRevisionRepository.findById(revision.getId())).thenReturn(Optional.of(revision));
     when(arcRepository.findById(arc.getId())).thenReturn(Optional.of(arc));
     when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
@@ -208,7 +207,8 @@ class StaffArcStateServiceTest {
         service.prepareRevision(
             arc.getId(), staff, new StaffArcGenerationRequest(modifiedSnapshot));
     StaffArcRevisionResponse result =
-        service.complete(context.revisionId(), new ArcGeneratedContent("새 순간", List.of("실용성"), "새 기억"));
+        service.complete(
+            context.revisionId(), new ArcGeneratedContent("새 순간", List.of("실용성"), "새 기억"));
 
     assertThat(context.revisionId()).isEqualTo(next.getId());
     assertThat(context.generationCommand().inputSnapshot()).isEqualTo(modifiedSnapshot);
