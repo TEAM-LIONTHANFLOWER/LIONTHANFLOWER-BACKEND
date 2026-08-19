@@ -18,15 +18,16 @@ class CorsProfileConfigurationTest {
   }
 
   @Test
-  void dev_환경은_develop_Pages_프론트만_허용한다() throws IOException {
+  void dev_환경은_localhost와_develop_Pages_프론트를_허용한다() throws IOException {
     assertThat(corsAllowedOrigins("application-dev.yml"))
-        .isEqualTo("https://develop.mcm-orbit-n34.pages.dev");
+        .isEqualTo("http://localhost:8081,https://develop.mcm-orbit-n34.pages.dev");
   }
 
   @Test
-  void prod_환경은_운영_Pages_프론트만_허용한다() throws IOException {
+  void prod_환경은_localhost와_develop과_운영_Pages_프론트를_허용한다() throws IOException {
     assertThat(corsAllowedOrigins("application-prod.yml"))
-        .isEqualTo("https://mcm-orbit-n34.pages.dev");
+        .isEqualTo(
+            "http://localhost:8081,https://develop.mcm-orbit-n34.pages.dev,https://mcm-orbit-n34.pages.dev");
   }
 
   private String corsAllowedOrigins(String resourceName) throws IOException {

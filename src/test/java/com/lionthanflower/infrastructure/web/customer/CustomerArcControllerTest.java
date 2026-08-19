@@ -1,6 +1,7 @@
 // 고객 Arc 목록과 상세 조회 HTTP 응답을 검증하는 Controller 테스트
 package com.lionthanflower.infrastructure.web.customer;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -12,7 +13,9 @@ import com.lionthanflower.domain.arc.entity.ArcStatus;
 import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.global.error.CommonErrorCode;
 import com.lionthanflower.global.error.GlobalExceptionHandler;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.Cookie;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -51,7 +54,9 @@ class CustomerArcControllerTest {
                 new CustomerArcQueryService.ArcSummary(
                     arcId,
                     2,
+                    "MCM HAUS",
                     "균형을 중요하게 생각합니다.",
+                    "수납공간을 오래 고민했습니다.",
                     product,
                     ArcStatus.SHARED,
                     Instant.parse("2026-08-15T12:01:00Z"),
@@ -63,10 +68,22 @@ class CustomerArcControllerTest {
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data[0].arcId").value(arcId.toString()))
         .andExpect(jsonPath("$.data[0].arcNumber").value(2))
+        .andExpect(jsonPath("$.data[0].storeName").value("MCM HAUS"))
         .andExpect(jsonPath("$.data[0].momentSummary").value("균형을 중요하게 생각합니다."))
+        .andExpect(jsonPath("$.data[0].momentToRemember").value("수납공간을 오래 고민했습니다."))
         .andExpect(jsonPath("$.data[0].representativeProduct.productName").value("A Bag"))
         .andExpect(jsonPath("$.data[0].representativeProduct.imageObjectKey").doesNotExist())
         .andExpect(jsonPath("$.data[0].status").value("SHARED"));
+  }
+
+  @Test
+  void 고객_Arc_목록_API에_매장과_편지_본문_설명이_있다() throws NoSuchMethodException {
+    Method method = CustomerArcController.class.getMethod("getArcs", String.class);
+
+    Operation operation = method.getAnnotation(Operation.class);
+
+    assertThat(operation).isNotNull();
+    assertThat(operation.description()).contains("매장 이름", "편지 본문");
   }
 
   @Test

@@ -4,6 +4,7 @@ package com.lionthanflower.application.staff;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.lionthanflower.application.staff.dto.StaffVisitAssignmentResponse;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class StaffVisitServiceTest {
@@ -104,8 +106,12 @@ class StaffVisitServiceTest {
     Staff staff = staff(LanguageCode.EN);
     UUID customerId = UUID.randomUUID();
     Visit visit = Visit.create(customerId, storeId);
+    Instant visitedAt = Instant.parse("2026-08-19T00:20:00Z");
+    Instant matchedAt = Instant.parse("2026-08-19T00:24:00Z");
     visit.completeOnboarding(
         LanguageCode.EN, InteractionStyle.STAFF_RECOMMENDATION, "다양한 컬러를 보고 싶어요");
+    visit.assignStaff(UUID.randomUUID(), matchedAt);
+    ReflectionTestUtils.setField(visit, "createdAt", visitedAt);
     Customer customer = mock(Customer.class);
     Arc firstArc = mock(Arc.class);
     Arc secondArc = mock(Arc.class);
@@ -129,6 +135,24 @@ class StaffVisitServiceTest {
     assertThat(result.getFirst().customerName()).isEqualTo("홍길동");
     assertThat(result.getFirst().additionalRequest()).isEqualTo("다양한 컬러를 보고 싶어요");
     assertThat(result.getFirst().arcCount()).isEqualTo(2);
+    assertThat(result.getFirst())
+        .hasFieldOrPropertyWithValue("matchedAt", matchedAt)
+        .hasFieldOrPropertyWithValue("visitedAt", visitedAt);
+  }
+
+  @Test
+  void 온보딩_완료_전_고객은_현재_방문_목록에서_제외한다() {
+    when(visitRepository.findByStoreIdAndStatusNotIn(
+            org.mockito.ArgumentMatchers.eq(storeId), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(List.of());
+
+    List<com.lionthanflower.application.staff.dto.VisitSummaryResponse> result =
+        service.getCurrentVisits(storeId);
+
+    assertThat(result).isEmpty();
+    verify(visitRepository)
+        .findByStoreIdAndStatusNotIn(
+            storeId, Set.of(VisitStatus.ONBOARDING, VisitStatus.COMPLETED, VisitStatus.CANCELED));
   }
 
   private Staff staff(LanguageCode language) {

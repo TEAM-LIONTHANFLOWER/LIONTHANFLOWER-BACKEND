@@ -41,6 +41,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -63,19 +64,17 @@ class StaffVisitControllerTest {
     UUID storeId = UUID.randomUUID();
     Staff staff = Staff.create(storeId, "김형진", "hashed-token", Set.of(LanguageCode.EN));
     UUID visitId = UUID.randomUUID();
+    Instant visitedAt = Instant.parse("2026-08-19T00:20:00Z");
+    Instant matchedAt = Instant.parse("2026-08-19T00:24:00Z");
+    Visit visit = Visit.create(UUID.randomUUID(), storeId);
+    visit.completeOnboarding(
+        LanguageCode.EN, InteractionStyle.STAFF_RECOMMENDATION, "다양한 컬러를 보고 싶어요");
+    visit.assignStaff(staff.getId(), matchedAt);
+    ReflectionTestUtils.setField(visit, "id", visitId);
+    ReflectionTestUtils.setField(visit, "createdAt", visitedAt);
 
     when(staffVisitService.getCurrentVisits(any(UUID.class)))
-        .thenReturn(
-            List.of(
-                new VisitSummaryResponse(
-                    visitId,
-                    "홍길동",
-                    VisitStatus.WAITING_FOR_STAFF,
-                    LanguageCode.EN,
-                    InteractionStyle.STAFF_RECOMMENDATION,
-                    staff.getId(),
-                    "다양한 컬러를 보고 싶어요",
-                    2)));
+        .thenReturn(List.of(VisitSummaryResponse.of(visit, "홍길동", 2)));
 
     MvcResult result =
         mockMvc
@@ -90,7 +89,13 @@ class StaffVisitControllerTest {
     assertThat(result.getResponse().getStatus()).isEqualTo(200);
     assertThat(result.getResponse().getContentAsString())
         .contains(
-            visitId.toString(), "홍길동", "WAITING_FOR_STAFF", "다양한 컬러를 보고 싶어요", "\"arcCount\":2");
+            visitId.toString(),
+            "홍길동",
+            "ACTIVE",
+            "다양한 컬러를 보고 싶어요",
+            "\"arcCount\":2",
+            "\"matchedAt\":\"2026-08-19T00:24:00Z\"",
+            "\"visitedAt\":\"2026-08-19T00:20:00Z\"");
   }
 
   @Test
@@ -128,6 +133,7 @@ class StaffVisitControllerTest {
 
     assertThat(operation).isNotNull();
     assertThat(operation.summary()).isEqualTo("현재 방문 고객 목록 조회");
+    assertThat(operation.description()).contains("방문 시각", "응대 시작 시각");
   }
 
   @Test

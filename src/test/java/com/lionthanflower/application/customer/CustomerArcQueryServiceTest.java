@@ -4,6 +4,7 @@ package com.lionthanflower.application.customer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.lionthanflower.domain.arc.entity.ActualInteractionPreference;
@@ -76,11 +77,13 @@ class CustomerArcQueryServiceTest {
     String rawToken = "known-token";
     Customer customer = Customer.create(tokenManager.hash(rawToken));
     UUID staffId = UUID.randomUUID();
+    Store store = Store.create("MCM HAUS", "MCM-SEOUL", "KR");
+    Visit visit = Visit.create(customer.getId(), store.getId());
     Product product = Product.create("BAG-001", "A Bag", ProductCategory.BAG);
     ProductVariant variant =
         ProductVariant.create(
             product.getId(), "BAG-001-BLK-S", ProductColor.BLACK, ProductOption.S);
-    Arc arc = Arc.create(UUID.randomUUID(), UUID.randomUUID(), customer.getId(), staffId);
+    Arc arc = Arc.create(visit.getId(), UUID.randomUUID(), customer.getId(), staffId);
     ArcRevision revision =
         ArcRevision.start(arc.getId(), 1, snapshot(variant.getId()), "arc-v1", staffId);
     revision.complete(
@@ -98,12 +101,19 @@ class CustomerArcQueryServiceTest {
     when(arcRevisionRepository.findAllById(any())).thenReturn(List.of(revision));
     when(productVariantRepository.findAllById(any())).thenReturn(List.of(variant));
     when(productRepository.findAllById(any())).thenReturn(List.of(product));
+    when(visitRepository.findAllById(List.of(visit.getId()))).thenReturn(List.of(visit));
+    when(storeRepository.findAllById(List.of(store.getId()))).thenReturn(List.of(store));
 
     List<CustomerArcQueryService.ArcSummary> result = service.getArcs(rawToken);
 
     assertThat(result).extracting(CustomerArcQueryService.ArcSummary::arcNumber).containsExactly(2);
     assertThat(result.getFirst().momentSummary()).isEqualTo("균형을 중요하게 생각합니다.");
     assertThat(result.getFirst().representativeProduct().productName()).isEqualTo("A Bag");
+    assertThat(result.getFirst())
+        .hasFieldOrPropertyWithValue("storeName", "MCM HAUS")
+        .hasFieldOrPropertyWithValue("momentToRemember", "수납공간을 오래 고민했습니다.");
+    verify(visitRepository).findAllById(List.of(visit.getId()));
+    verify(storeRepository).findAllById(List.of(store.getId()));
   }
 
   @Test

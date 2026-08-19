@@ -33,7 +33,9 @@ public class CustomerArcController {
     this.commandService = commandService;
   }
 
-  @Operation(summary = "고객 Arc 목록 조회", description = "고객에게 공유되거나 최종 저장된 Arc 전체를 최신순으로 조회합니다.")
+  @Operation(
+      summary = "고객 Arc 목록 조회",
+      description = "고객에게 공유되거나 최종 저장된 Arc의 매장 이름과 편지 본문을 최신순으로 조회합니다.")
   @GetMapping
   public ApiResponse<List<ArcListItemResponse>> getArcs(
       @CookieValue(name = CUSTOMER_TOKEN_COOKIE, required = false) String rawToken) {
@@ -70,7 +72,9 @@ public class CustomerArcController {
   public record ArcListItemResponse(
       UUID arcId,
       int arcNumber,
+      String storeName,
       String momentSummary,
+      String momentToRemember,
       ProductResponse representativeProduct,
       ArcStatus status,
       Instant sharedAt,
@@ -80,7 +84,9 @@ public class CustomerArcController {
       return new ArcListItemResponse(
           arc.arcId(),
           arc.arcNumber(),
+          arc.storeName(),
           arc.momentSummary(),
+          arc.momentToRemember(),
           ProductResponse.from(arc.representativeProduct()),
           arc.status(),
           arc.sharedAt(),
