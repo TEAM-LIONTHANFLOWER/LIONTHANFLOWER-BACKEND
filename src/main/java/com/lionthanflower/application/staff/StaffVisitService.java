@@ -11,9 +11,11 @@ import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
 import com.lionthanflower.domain.visit.error.VisitErrorCode;
+import com.lionthanflower.domain.visitmemory.entity.VisitMemory;
 import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.infrastructure.persistence.ArcRepository;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
+import com.lionthanflower.infrastructure.persistence.VisitMemoryRepository;
 import com.lionthanflower.infrastructure.persistence.VisitRepository;
 import java.time.Instant;
 import java.util.List;
@@ -35,14 +37,17 @@ public class StaffVisitService {
   private final VisitRepository visitRepository;
   private final CustomerRepository customerRepository;
   private final ArcRepository arcRepository;
+  private final VisitMemoryRepository visitMemoryRepository;
 
   public StaffVisitService(
       VisitRepository visitRepository,
       CustomerRepository customerRepository,
-      ArcRepository arcRepository) {
+      ArcRepository arcRepository,
+      VisitMemoryRepository visitMemoryRepository) {
     this.visitRepository = visitRepository;
     this.customerRepository = customerRepository;
     this.arcRepository = arcRepository;
+    this.visitMemoryRepository = visitMemoryRepository;
   }
 
   @Transactional(readOnly = true)
@@ -61,6 +66,17 @@ public class StaffVisitService {
                 .stream()
                 .map(Arc::getCustomerId)
                 .collect(Collectors.groupingBy(customerId -> customerId, Collectors.counting()));
+    Set<UUID> visitIds = visits.stream().map(Visit::getId).collect(Collectors.toSet());
+    Map<UUID, UUID> arcIds =
+        visitIds.isEmpty()
+            ? Map.of()
+            : arcRepository.findByVisitIdIn(visitIds).stream()
+                .collect(Collectors.toMap(Arc::getVisitId, Arc::getId));
+    Map<UUID, UUID> visitMemoryIds =
+        visitIds.isEmpty()
+            ? Map.of()
+            : visitMemoryRepository.findByVisitIdIn(visitIds).stream()
+                .collect(Collectors.toMap(VisitMemory::getVisitId, VisitMemory::getId));
 
     return visits.stream()
         .map(
@@ -68,7 +84,9 @@ public class StaffVisitService {
                 VisitSummaryResponse.of(
                     visit,
                     customerNames.get(visit.getCustomerId()),
-                    arcCounts.getOrDefault(visit.getCustomerId(), 0L)))
+                    arcCounts.getOrDefault(visit.getCustomerId(), 0L),
+                    arcIds.get(visit.getId()),
+                    visitMemoryIds.get(visit.getId())))
         .toList();
   }
 
