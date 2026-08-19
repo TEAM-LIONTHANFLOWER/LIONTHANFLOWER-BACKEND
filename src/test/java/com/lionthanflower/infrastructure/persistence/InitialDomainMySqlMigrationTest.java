@@ -51,6 +51,11 @@ class InitialDomainMySqlMigrationTest extends MySqlContainerSupport {
     assertThat(countColumns("product_variants", "image_object_key")).isZero();
   }
 
+  @Test
+  void MCM_서울_기본_매장이_생성된다() throws SQLException {
+    assertThat(countStoresByCode("MCM-SEOUL")).isEqualTo(1);
+  }
+
   private int countTables(String... tableNames) throws SQLException {
     String placeholders = String.join(",", java.util.Collections.nCopies(tableNames.length, "?"));
     String sql =
@@ -93,6 +98,18 @@ class InitialDomainMySqlMigrationTest extends MySqlContainerSupport {
         PreparedStatement statement = connection.prepareStatement(sql)) {
       statement.setString(1, tableName);
       statement.setString(2, constraintName);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getInt(1);
+      }
+    }
+  }
+
+  private int countStoresByCode(String code) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement =
+            connection.prepareStatement("select count(*) from stores where code = ?")) {
+      statement.setString(1, code);
       try (ResultSet resultSet = statement.executeQuery()) {
         resultSet.next();
         return resultSet.getInt(1);

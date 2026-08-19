@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: 코드가 `MCM-SEOUL`인 매장 한 건과 `LanguageCode.KO`.
 
-- [ ] **Step 1: PostgreSQL과 MySQL migration 테스트에 기본 매장 조회 검증을 추가한다.**
+- [x] **Step 1: PostgreSQL과 MySQL migration 테스트에 기본 매장 조회 검증을 추가한다.**
 
 ```java
 @Test
@@ -40,7 +40,7 @@ void MCM_서울_기본_매장이_생성된다() throws SQLException {
 }
 ```
 
-- [ ] **Step 2: 고객 온보딩 HTTP 테스트에 `serviceLanguage: KO` 요청을 추가한다.**
+- [x] **Step 2: 고객 온보딩 HTTP 테스트에 `serviceLanguage: KO` 요청을 추가한다.**
 
 ```java
 mockMvc.perform(patch("/api/customers/visits/{visitId}/onboarding", visitId)
@@ -50,11 +50,11 @@ mockMvc.perform(patch("/api/customers/visits/{visitId}/onboarding", visitId)
     .andExpect(status().isOk());
 ```
 
-- [ ] **Step 3: 관련 테스트를 실행해 매장 0건과 `KO` 역직렬화 실패를 확인한다.**
+- [x] **Step 3: 관련 테스트를 실행해 매장 0건과 `KO` 역직렬화 실패를 확인한다.**
 
 Run: `./gradlew test --tests '*InitialDomainPersistenceTest.MCM*' --tests '*InitialDomainMySqlMigrationTest.MCM*' --tests '*CustomerVisitControllerTest.*KO*' --stacktrace --no-daemon`
 
-- [ ] **Step 4: V6 migration과 `LanguageCode.KO`를 최소 구현한다.**
+- [x] **Step 4: V6 migration과 `LanguageCode.KO`를 최소 구현한다.**
 
 ```sql
 -- 고객 방문 생성에 필요한 MCM 서울 기본 매장을 초기화하는 마이그레이션
@@ -73,9 +73,9 @@ public enum LanguageCode {
 }
 ```
 
-- [ ] **Step 5: 관련 테스트를 다시 실행해 통과를 확인한다.**
+- [x] **Step 5: 관련 테스트를 다시 실행해 통과를 확인한다.**
 
-- [ ] **Step 6: `36 fix: 기본 매장과 한국어 언어 코드 추가`로 커밋한다.**
+- [x] **Step 6: `36 fix: 기본 매장과 한국어 언어 코드 추가`로 커밋한다.**
 
 ### Task 2: 공개 매장 검색 API
 

@@ -109,6 +109,25 @@ class CustomerVisitControllerTest {
   }
 
   @Test
+  void 고객_온보딩은_한국어를_서비스_언어로_선택할_수_있다() throws Exception {
+    UUID visitId = UUID.randomUUID();
+    when(service.progressOnboarding(any(), any(), any()))
+        .thenReturn(new CustomerVisitService.OnboardingResult(visitId, VisitStatus.ACTIVE));
+
+    mockMvc
+        .perform(
+            patch("/api/customers/visits/{visitId}/onboarding", visitId)
+                .cookie(new jakarta.servlet.http.Cookie("customer_token", "known-token"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name":"홍길동","serviceLanguage":"KO","interactionStyle":"SELF_GUIDED"}
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+  }
+
+  @Test
   void 고객_온보딩_진행은_이름_검증에_실패하면_공통_400을_반환한다() throws Exception {
     UUID visitId = UUID.randomUUID();
 
