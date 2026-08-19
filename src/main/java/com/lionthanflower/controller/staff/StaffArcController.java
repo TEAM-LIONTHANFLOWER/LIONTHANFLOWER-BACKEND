@@ -51,15 +51,6 @@ public class StaffArcController {
     return ApiResponse.success(staffArcService.regenerate(arcId, requireStaff(staff), request));
   }
 
-  @Operation(summary = "Arc 전송", description = "직원이 선택한 READY Arc 리비전을 고객에게 공유합니다.")
-  @PostMapping("/api/staff/arcs/{arcId}/revisions/{revisionId}/share")
-  public ApiResponse<StaffArcRevisionResponse> share(
-      @PathVariable UUID arcId,
-      @PathVariable UUID revisionId,
-      @AuthenticationPrincipal Staff staff) {
-    return ApiResponse.success(staffArcService.share(arcId, revisionId, requireStaff(staff)));
-  }
-
   private Staff requireStaff(Staff staff) {
     if (staff == null) {
       throw new BusinessException(StaffErrorCode.UNAUTHORIZED);

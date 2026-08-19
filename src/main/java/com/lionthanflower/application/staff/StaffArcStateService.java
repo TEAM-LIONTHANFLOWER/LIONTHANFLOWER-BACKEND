@@ -8,7 +8,6 @@ import com.lionthanflower.domain.arc.entity.Arc;
 import com.lionthanflower.domain.arc.entity.ArcGeneratedContent;
 import com.lionthanflower.domain.arc.entity.ArcInputSnapshot;
 import com.lionthanflower.domain.arc.entity.ArcRevision;
-import com.lionthanflower.domain.arc.entity.ArcRevisionStatus;
 import com.lionthanflower.domain.arc.entity.ArcStatus;
 import com.lionthanflower.domain.arc.error.ArcErrorCode;
 import com.lionthanflower.domain.common.entity.SnapshotJsonSerializer;
@@ -113,7 +112,7 @@ public class StaffArcStateService {
             .findById(arcId)
             .orElseThrow(() -> new BusinessException(ArcErrorCode.NOT_FOUND));
     Visit visit = findVisit(arc.getVisitId(), staff);
-    if (arc.getStatus() != ArcStatus.DRAFT) {
+    if (arc.getStatus() != ArcStatus.DRAFT && arc.getStatus() != ArcStatus.SHARED) {
       throw new BusinessException(ArcErrorCode.NOT_ASSIGNABLE);
     }
     verifyAssignedStaff(visit, staff);
@@ -147,8 +146,14 @@ public class StaffArcStateService {
   @Transactional
   public StaffArcRevisionResponse complete(UUID revisionId, ArcGeneratedContent content) {
     ArcRevision revision = findRevision(revisionId);
-    revision.complete(SnapshotJsonSerializer.serialize(content), Instant.now());
     Arc arc = findArc(revision.getArcId());
+    Visit visit =
+        visitRepository
+            .findById(arc.getVisitId())
+            .orElseThrow(() -> new BusinessException(CommonErrorCode.INTERNAL_SERVER_ERROR));
+    Instant now = Instant.now();
+    revision.complete(SnapshotJsonSerializer.serialize(content), now);
+    publishRevision(arc, revision, visit, now);
     return toResponse(arc, revision);
   }
 
@@ -172,27 +177,19 @@ public class StaffArcStateService {
     return toResponse(arc, revision);
   }
 
-  @Transactional
-  public StaffArcRevisionResponse share(UUID arcId, UUID revisionId, Staff staff) {
-    Arc arc = findArc(arcId);
-    Visit visit = findVisit(arc.getVisitId(), staff);
-    verifyAssignedStaff(visit, staff);
-    if (arc.getStatus() != ArcStatus.DRAFT) {
-      throw new BusinessException(ArcErrorCode.NOT_ASSIGNABLE);
-    }
-    ArcRevision revision =
-        arcRevisionRepository
-            .findByIdAndArcId(revisionId, arcId)
-            .orElseThrow(() -> new BusinessException(ArcErrorCode.NOT_FOUND));
-    if (revision.getStatus() != ArcRevisionStatus.READY) {
-      throw new BusinessException(ArcErrorCode.REVISION_NOT_READY);
-    }
-    long nextArcNumber =
-        arcRepository.countByCustomerIdAndStatusIn(arc.getCustomerId(), VISIBLE_STATUSES) + 1;
+  private void publishRevision(Arc arc, ArcRevision revision, Visit visit, Instant sharedAt) {
     try {
-      arc.shareFirst(revision, Instant.now(), Math.toIntExact(nextArcNumber));
+      if (arc.getStatus() == ArcStatus.DRAFT) {
+        long nextArcNumber =
+            arcRepository.countByCustomerIdAndStatusIn(arc.getCustomerId(), VISIBLE_STATUSES) + 1;
+        arc.shareFirst(revision, sharedAt, Math.toIntExact(nextArcNumber));
+        visit.complete(sharedAt);
+      } else if (arc.getStatus() == ArcStatus.SHARED) {
+        arc.reshare(revision, sharedAt);
+      } else {
+        throw new BusinessException(ArcErrorCode.NOT_ASSIGNABLE);
+      }
       arcRepository.saveAndFlush(arc);
-      return toResponse(arc, revision);
     } catch (DataIntegrityViolationException exception) {
       throw translateUniqueConstraint(exception);
     }

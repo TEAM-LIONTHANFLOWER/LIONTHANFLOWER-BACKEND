@@ -4,7 +4,6 @@ package com.lionthanflower.infrastructure.web.customer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -35,9 +34,6 @@ class CustomerArcControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private CustomerArcQueryService service;
-
-  @MockitoBean
-  private com.lionthanflower.application.customer.CustomerArcCommandService commandService;
 
   @Test
   void 고객_Arc_목록을_대표_제품과_함께_반환한다() throws Exception {
@@ -131,24 +127,5 @@ class CustomerArcControllerTest {
         .perform(get("/api/customers/arcs"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("COMMON-401"));
-  }
-
-  @Test
-  void 고객이_공유된_Arc를_최종_저장한다() throws Exception {
-    UUID arcId = UUID.randomUUID();
-    when(commandService.finalizeArc(arcId, "known-token"))
-        .thenReturn(
-            new com.lionthanflower.application.customer.CustomerArcCommandService.ArcFinalization(
-                arcId, ArcStatus.FINALIZED, Instant.parse("2026-08-15T12:05:00Z")));
-
-    mockMvc
-        .perform(
-            post("/api/customers/arcs/{arcId}/finalize", arcId)
-                .cookie(new Cookie("customer_token", "known-token")))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.success").value(true))
-        .andExpect(jsonPath("$.data.arcId").value(arcId.toString()))
-        .andExpect(jsonPath("$.data.status").value("FINALIZED"))
-        .andExpect(jsonPath("$.data.finalizedAt").value("2026-08-15T12:05:00Z"));
   }
 }

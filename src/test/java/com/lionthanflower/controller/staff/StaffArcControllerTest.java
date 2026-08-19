@@ -157,24 +157,6 @@ class StaffArcControllerTest {
   }
 
   @Test
-  void READY_리비전을_고객에게_공유한다() throws Exception {
-    UUID arcId = UUID.randomUUID();
-    UUID revisionId = UUID.randomUUID();
-    Staff staff = staff();
-    StaffArcRevisionResponse response = response(arcId, ArcRevisionStatus.READY);
-    when(staffArcService.share(arcId, revisionId, staff)).thenReturn(response);
-
-    mockMvc
-        .perform(
-            post("/api/staff/arcs/{arcId}/revisions/{revisionId}/share", arcId, revisionId)
-                .with(authentication(staffAuthentication(staff))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.arcStatus").value("SHARED"));
-
-    verify(staffArcService).share(arcId, revisionId, staff);
-  }
-
-  @Test
   void Arc를_찾지_못하면_404와_ARC_404를_반환한다() throws Exception {
     UUID arcId = UUID.randomUUID();
     Staff staff = staff();
@@ -186,22 +168,6 @@ class StaffArcControllerTest {
             get("/api/staff/arcs/{arcId}", arcId).with(authentication(staffAuthentication(staff))))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error.code").value("ARC-404"));
-  }
-
-  @Test
-  void 공유할_수_없는_Arc는_409와_ARC_409를_반환한다() throws Exception {
-    UUID arcId = UUID.randomUUID();
-    UUID revisionId = UUID.randomUUID();
-    Staff staff = staff();
-    when(staffArcService.share(arcId, revisionId, staff))
-        .thenThrow(new BusinessException(ArcErrorCode.REVISION_NOT_READY));
-
-    mockMvc
-        .perform(
-            post("/api/staff/arcs/{arcId}/revisions/{revisionId}/share", arcId, revisionId)
-                .with(authentication(staffAuthentication(staff))))
-        .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.error.code").value("ARC-409"));
   }
 
   @Test
