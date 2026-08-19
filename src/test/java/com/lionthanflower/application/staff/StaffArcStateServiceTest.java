@@ -14,6 +14,7 @@ import com.lionthanflower.application.staff.dto.StaffArcGenerationRequest;
 import com.lionthanflower.application.staff.dto.StaffArcRevisionResponse;
 import com.lionthanflower.domain.arc.entity.ActualInteractionPreference;
 import com.lionthanflower.domain.arc.entity.Arc;
+import com.lionthanflower.domain.arc.entity.ArcGeneratedContent;
 import com.lionthanflower.domain.arc.entity.ArcInputSnapshot;
 import com.lionthanflower.domain.arc.entity.ArcRevision;
 import com.lionthanflower.domain.arc.entity.ArcRevisionStatus;
@@ -148,7 +149,7 @@ class StaffArcStateServiceTest {
   }
 
   @Test
-  void READY_리비전을_공유하면_Arc를_SHARED로_전환한다() {
+  void 최초_Arc_생성_완료_시_고객에게_공개하고_방문을_완료한다() {
     Staff staff = staff();
     Visit visit = visit(UUID.randomUUID(), InteractionStyle.STAFF_RECOMMENDATION);
     visit.assignStaff(staff.getId(), Instant.now());
@@ -156,49 +157,89 @@ class StaffArcStateServiceTest {
     Purchase purchase = Purchase.create(visit.getId());
     Arc arc = Arc.create(visit.getId(), purchase.getId(), visit.getCustomerId(), staff.getId());
     ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staff.getId());
-    revision.complete(
-        "{\"momentSummary\":\"오늘의 순간\",\"preferences\":[\"실용성\"],\"momentToRemember\":\"기억할 순간\"}",
-        Instant.now());
+    ArcGeneratedContent content =
+        new ArcGeneratedContent("오늘의 순간", List.of("실용성"), "기억할 순간");
+    when(arcRevisionRepository.findById(revision.getId())).thenReturn(Optional.of(revision));
     when(arcRepository.findById(arc.getId())).thenReturn(Optional.of(arc));
-    when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
-    when(arcRevisionRepository.findByIdAndArcId(revision.getId(), arc.getId()))
-        .thenReturn(Optional.of(revision));
+    when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
     when(arcRepository.countByCustomerIdAndStatusIn(eq(visit.getCustomerId()), anyCollection()))
-        .thenReturn(0L);
+        .thenReturn(2L);
+    when(arcRepository.saveAndFlush(arc)).thenReturn(arc);
 
-    StaffArcRevisionResponse result = service.share(arc.getId(), revision.getId(), staff);
+    StaffArcRevisionResponse result = service.complete(revision.getId(), content);
 
     assertThat(result.arcStatus()).isEqualTo(ArcStatus.SHARED);
     assertThat(result.revisionStatus()).isEqualTo(ArcRevisionStatus.READY);
-    assertThat(arc.getArcNumber()).isEqualTo(1);
+    assertThat(arc.getSharedRevisionId()).isEqualTo(revision.getId());
+    assertThat(arc.getArcNumber()).isEqualTo(3);
+    assertThat(visit.getStatus()).isEqualTo(VisitStatus.COMPLETED);
   }
 
   @Test
-  void Arc_공유_중_유니크_제약_위반은_Arc_충돌로_변환한다() {
+  void SHARED_Arc도_기존_입력으로_재생성할_수_있고_성공한_리비전으로_공개본을_교체한다() {
     Staff staff = staff();
     Visit visit = visit(UUID.randomUUID(), InteractionStyle.STAFF_RECOMMENDATION);
     visit.assignStaff(staff.getId(), Instant.now());
     visit.confirmPurchase(staff.getId(), Instant.now());
     Purchase purchase = Purchase.create(visit.getId());
     Arc arc = Arc.create(visit.getId(), purchase.getId(), visit.getCustomerId(), staff.getId());
-    ArcRevision revision = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staff.getId());
-    revision.complete(
-        "{\"momentSummary\":\"오늘의 순간\",\"preferences\":[\"실용성\"],\"momentToRemember\":\"기억할 순간\"}",
+    ArcRevision previous = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staff.getId());
+    previous.complete(
+        "{\"momentSummary\":\"기존 순간\",\"preferences\":[\"실용성\"],\"momentToRemember\":\"기존 기억\"}",
         Instant.now());
+    arc.shareFirst(previous, Instant.now(), 1);
+    visit.complete(Instant.now());
+    ArcRevision next = ArcRevision.start(arc.getId(), 2, snapshot(), "arc-v1", staff.getId());
+    ArcInputSnapshot modifiedSnapshot = snapshot();
+    Customer customer = org.mockito.Mockito.mock(Customer.class);
+    when(customer.getName()).thenReturn("홍길동");
     when(arcRepository.findById(arc.getId())).thenReturn(Optional.of(arc));
     when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
-    when(arcRevisionRepository.findByIdAndArcId(revision.getId(), arc.getId()))
-        .thenReturn(Optional.of(revision));
-    when(arcRepository.countByCustomerIdAndStatusIn(eq(visit.getCustomerId()), anyCollection()))
-        .thenReturn(0L);
-    doThrow(uniqueConstraint("uk_arcs_customer_arc_number"))
-        .when(arcRepository)
-        .saveAndFlush(any(Arc.class));
+    when(arcRevisionRepository.findTopByArcIdOrderByRevisionNumberDesc(arc.getId()))
+        .thenReturn(Optional.of(previous));
+    when(purchaseRepository.findByVisitId(visit.getId())).thenReturn(Optional.of(purchase));
+    when(arcRevisionRepository.save(any(ArcRevision.class))).thenReturn(next);
+    when(customerRepository.findById(visit.getCustomerId())).thenReturn(Optional.of(customer));
+    when(arcRevisionRepository.findById(next.getId())).thenReturn(Optional.of(next));
+    when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+    when(arcRepository.saveAndFlush(arc)).thenReturn(arc);
 
-    assertThatThrownBy(() -> service.share(arc.getId(), revision.getId(), staff))
-        .isInstanceOfSatisfying(
-            BusinessException.class,
-            exception -> assertThat(exception.errorCode()).isEqualTo(ArcErrorCode.ALREADY_EXISTS));
+    StaffArcStateService.GenerationContext context =
+        service.prepareRevision(
+            arc.getId(), staff, new StaffArcGenerationRequest(modifiedSnapshot));
+    StaffArcRevisionResponse result =
+        service.complete(context.revisionId(), new ArcGeneratedContent("새 순간", List.of("실용성"), "새 기억"));
+
+    assertThat(context.revisionId()).isEqualTo(next.getId());
+    assertThat(context.generationCommand().inputSnapshot()).isEqualTo(modifiedSnapshot);
+    assertThat(result.arcStatus()).isEqualTo(ArcStatus.SHARED);
+    assertThat(arc.getSharedRevisionId()).isEqualTo(next.getId());
+    assertThat(arc.getArcNumber()).isEqualTo(1);
+    assertThat(visit.getStatus()).isEqualTo(VisitStatus.COMPLETED);
+  }
+
+  @Test
+  void SHARED_Arc의_재생성_실패는_기존_공개본을_유지한다() {
+    Staff staff = staff();
+    Visit visit = visit(UUID.randomUUID(), InteractionStyle.STAFF_RECOMMENDATION);
+    visit.assignStaff(staff.getId(), Instant.now());
+    visit.confirmPurchase(staff.getId(), Instant.now());
+    Purchase purchase = Purchase.create(visit.getId());
+    Arc arc = Arc.create(visit.getId(), purchase.getId(), visit.getCustomerId(), staff.getId());
+    ArcRevision previous = ArcRevision.start(arc.getId(), 1, snapshot(), "arc-v1", staff.getId());
+    previous.complete(
+        "{\"momentSummary\":\"기존 순간\",\"preferences\":[\"실용성\"],\"momentToRemember\":\"기존 기억\"}",
+        Instant.now());
+    arc.shareFirst(previous, Instant.now(), 1);
+    ArcRevision failed = ArcRevision.start(arc.getId(), 2, snapshot(), "arc-v1", staff.getId());
+    when(arcRevisionRepository.findById(failed.getId())).thenReturn(Optional.of(failed));
+    when(arcRepository.findById(arc.getId())).thenReturn(Optional.of(arc));
+
+    StaffArcRevisionResponse result = service.fail(failed.getId(), "OPENAI_GENERATION_FAILED");
+
+    assertThat(result.revisionStatus()).isEqualTo(ArcRevisionStatus.FAILED);
+    assertThat(arc.getStatus()).isEqualTo(ArcStatus.SHARED);
+    assertThat(arc.getSharedRevisionId()).isEqualTo(previous.getId());
   }
 
   @Test
