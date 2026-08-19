@@ -1,4 +1,4 @@
-// 운영 health endpoint 공개와 나머지 요청 보호를 검증하는 보안 테스트
+// 운영 health와 공개 Swagger endpoint 및 나머지 요청 보호를 검증하는 보안 테스트
 package com.lionthanflower.global.config;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -40,6 +40,12 @@ class CustomerApiSecurityConfigTest {
   @Test
   void health_endpoint는_인증_없이_접근할_수_있다() throws Exception {
     mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
+  }
+
+  @Test
+  void swagger_endpoint는_인증_없이_접근할_수_있다() throws Exception {
+    mockMvc.perform(get("/swagger-ui.html")).andExpect(status().isOk());
+    mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
   }
 
   @Test
@@ -114,6 +120,16 @@ class CustomerApiSecurityConfigTest {
     @PostMapping("/api/customers/test")
     String updateCustomerApi() {
       return "updated";
+    }
+
+    @GetMapping("/swagger-ui.html")
+    String swaggerUi() {
+      return "swagger";
+    }
+
+    @GetMapping("/v3/api-docs")
+    String apiDocs() {
+      return "{}";
     }
   }
 

@@ -104,6 +104,21 @@ jobs:
           ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
             'sudo install -o root -g root -m 600 /tmp/mcm-orbit.env /opt/mcm-orbit/.env && rm -f /tmp/mcm-orbit.env'
 
+      - name: Upload production configuration
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          scp -i "$HOME/.ssh/deploy_key" compose.production.yml \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/mcm-orbit-compose.yml"
+          scp -i "$HOME/.ssh/deploy_key" deploy/Caddyfile \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/mcm-orbit-Caddyfile"
+          ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            'sudo install -o root -g root -m 644 /tmp/mcm-orbit-compose.yml /opt/mcm-orbit/compose.production.yml && \
+             sudo install -o root -g root -m 644 /tmp/mcm-orbit-Caddyfile /etc/caddy/Caddyfile && \
+             rm -f /tmp/mcm-orbit-compose.yml /tmp/mcm-orbit-Caddyfile'
+
       - name: Deploy container
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -118,15 +133,25 @@ jobs:
           ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
             'cd /opt/mcm-orbit && sudo docker compose -f compose.production.yml pull && sudo docker compose -f compose.production.yml up -d --remove-orphans'
 
+      - name: Reload Caddy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            'sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy'
+
       - name: Verify health
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          PUBLIC_HOST: mcmorbit.p-e.kr
           PREVIOUS_IMAGE_TAG: ${{ env.PREVIOUS_IMAGE_TAG }}
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
-            status="$(curl --silent --show-error --output /tmp/mcm-orbit-health --write-out '%{http_code}' "http://$DEPLOY_HOST/actuator/health" || true)"
+            status="$(curl --silent --show-error --output /tmp/mcm-orbit-health --write-out '%{http_code}' "https://$PUBLIC_HOST/actuator/health" || true)"
             if [ "$status" = "200" ] && grep -q '"status":"UP"' /tmp/mcm-orbit-health; then
               exit 0
             fi

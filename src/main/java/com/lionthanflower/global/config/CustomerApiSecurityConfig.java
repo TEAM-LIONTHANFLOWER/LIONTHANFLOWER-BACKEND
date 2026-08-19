@@ -40,7 +40,13 @@ public class CustomerApiSecurityConfig {
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
-                        "/actuator/health", "/api/customers/**", "/api/staff/**", "/api/stores")
+                        "/actuator/health",
+                        "/swagger-ui.html",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/api/customers/**",
+                        "/api/staff/**",
+                        "/api/stores")
                     .permitAll()
                     .anyRequest()
                     .authenticated());
