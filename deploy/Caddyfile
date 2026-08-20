@@ -1,4 +1,4 @@
-# mcmorbit.p-e.kr HTTPS reverse proxy 설정
-mcmorbit.p-e.kr {
+# MCM Orbit API HTTPS 리버스 프록시 설정
+mcmorbit.p-e.kr, api.mcm-orbit.site {
 	reverse_proxy 127.0.0.1:8080
 }

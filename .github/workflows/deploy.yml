@@ -146,17 +146,29 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          PUBLIC_HOST: mcmorbit.p-e.kr
+          PUBLIC_HOSTS: mcmorbit.p-e.kr api.mcm-orbit.site
           PREVIOUS_IMAGE_TAG: ${{ env.PREVIOUS_IMAGE_TAG }}
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 30); do
-            status="$(curl --silent --show-error --output /tmp/mcm-orbit-health --write-out '%{http_code}' "https://$PUBLIC_HOST/actuator/health" || true)"
-            if [ "$status" = "200" ] && grep -q '"status":"UP"' /tmp/mcm-orbit-health; then
-              exit 0
+          all_healthy=true
+          for public_host in $PUBLIC_HOSTS; do
+            host_healthy=false
+            for _ in $(seq 1 30); do
+              status="$(curl --silent --show-error --output /tmp/mcm-orbit-health --write-out '%{http_code}' "https://$public_host/actuator/health" || true)"
+              if [ "$status" = "200" ] && grep -q '"status":"UP"' /tmp/mcm-orbit-health; then
+                host_healthy=true
+                break
+              fi
+              sleep 5
+            done
+            if [ "$host_healthy" != "true" ]; then
+              all_healthy=false
+              break
             fi
-            sleep 5
           done
+          if [ "$all_healthy" = "true" ]; then
+            exit 0
+          fi
           if [ -n "$PREVIOUS_IMAGE_TAG" ]; then
             ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
               "sudo sed -i -E 's/^IMAGE_TAG=.*/IMAGE_TAG=$PREVIOUS_IMAGE_TAG/' /opt/mcm-orbit/.env && sudo sed -i -E '/^PREVIOUS_IMAGE_TAG=/d' /opt/mcm-orbit/.env && cd /opt/mcm-orbit && sudo docker compose -f compose.production.yml up -d --remove-orphans"
