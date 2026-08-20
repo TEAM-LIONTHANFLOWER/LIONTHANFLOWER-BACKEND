@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 })
 @TestPropertySource(
     properties =
-        "app.cors.allowed-origins=http://localhost:8081,https://develop.mcm-orbit-n34.pages.dev,https://mcm-orbit-n34.pages.dev")
+        "app.cors.allowed-origins=http://localhost:8081,https://develop.mcm-orbit-n34.pages.dev,https://mcm-orbit-n34.pages.dev,https://mcm-orbit.site")
 class CustomerApiSecurityConfigTest {
 
   @Autowired private MockMvc mockMvc;
@@ -58,7 +58,8 @@ class CustomerApiSecurityConfigTest {
       strings = {
         "http://localhost:8081",
         "https://develop.mcm-orbit-n34.pages.dev",
-        "https://mcm-orbit-n34.pages.dev"
+        "https://mcm-orbit-n34.pages.dev",
+        "https://mcm-orbit.site"
       })
   void 허용된_Origin의_API_응답에_CORS_헤더를_추가한다(String origin) throws Exception {
     mockMvc
