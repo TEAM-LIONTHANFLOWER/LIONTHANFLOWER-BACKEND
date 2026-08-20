@@ -22,7 +22,7 @@ public class CustomerStudioFrameController {
 
   @Operation(
       summary = "MCM Studio 프레임 목록 조회",
-      description = "웹 Canvas 합성에 사용할 수 있도록 설정된 투명 PNG 프레임 목록을 반환합니다.")
+      description = "웹 Canvas 합성에 사용할 프론트 정적 파일의 상대 경로를 포함한 SVG 프레임 목록을 반환합니다.")
   @GetMapping
   public ApiResponse<List<FrameResponse>> getFrames() {
     List<FrameResponse> frames = service.getFrames().stream().map(FrameResponse::from).toList();

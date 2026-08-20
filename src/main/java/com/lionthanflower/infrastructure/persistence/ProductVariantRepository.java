@@ -2,7 +2,12 @@
 package com.lionthanflower.infrastructure.persistence;
 
 import com.lionthanflower.domain.product.entity.ProductVariant;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ProductVariantRepository extends JpaRepository<ProductVariant, UUID> {}
+public interface ProductVariantRepository extends JpaRepository<ProductVariant, UUID> {
+
+  List<ProductVariant> findAllByProductIdIn(Collection<UUID> productIds);
+}

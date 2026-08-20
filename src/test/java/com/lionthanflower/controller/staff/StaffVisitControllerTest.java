@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.lionthanflower.application.staff.StaffVisitService;
 import com.lionthanflower.application.staff.dto.StaffVisitAssignmentResponse;
+import com.lionthanflower.application.staff.dto.VisitResultType;
 import com.lionthanflower.application.staff.dto.VisitSummaryResponse;
 import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.store.entity.Staff;
@@ -41,6 +42,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -63,19 +65,21 @@ class StaffVisitControllerTest {
     UUID storeId = UUID.randomUUID();
     Staff staff = Staff.create(storeId, "김형진", "hashed-token", Set.of(LanguageCode.EN));
     UUID visitId = UUID.randomUUID();
+    Instant visitedAt = Instant.parse("2026-08-19T00:20:00Z");
+    Instant matchedAt = Instant.parse("2026-08-19T00:24:00Z");
+    Visit visit = Visit.create(UUID.randomUUID(), storeId);
+    visit.completeOnboarding(
+        LanguageCode.EN, InteractionStyle.STAFF_RECOMMENDATION, "다양한 컬러를 보고 싶어요");
+    visit.assignStaff(staff.getId(), matchedAt);
+    ReflectionTestUtils.setField(visit, "id", visitId);
+    ReflectionTestUtils.setField(visit, "createdAt", visitedAt);
+    UUID resultId = UUID.randomUUID();
 
-    when(staffVisitService.getCurrentVisits(any(UUID.class)))
+    when(staffVisitService.getCurrentVisits(any(UUID.class), any(UUID.class)))
         .thenReturn(
             List.of(
-                new VisitSummaryResponse(
-                    visitId,
-                    "홍길동",
-                    VisitStatus.WAITING_FOR_STAFF,
-                    LanguageCode.EN,
-                    InteractionStyle.STAFF_RECOMMENDATION,
-                    staff.getId(),
-                    "다양한 컬러를 보고 싶어요",
-                    2)));
+                VisitSummaryResponse.of(
+                    visit, "홍길동", 2, resultId, null, VisitResultType.ARC, resultId, 2)));
 
     MvcResult result =
         mockMvc
@@ -86,11 +90,20 @@ class StaffVisitControllerTest {
                             new UsernamePasswordAuthenticationToken(staff, null, List.of()))))
             .andReturn();
 
-    verify(staffVisitService).getCurrentVisits(storeId);
+    verify(staffVisitService).getCurrentVisits(storeId, staff.getId());
     assertThat(result.getResponse().getStatus()).isEqualTo(200);
     assertThat(result.getResponse().getContentAsString())
         .contains(
-            visitId.toString(), "홍길동", "WAITING_FOR_STAFF", "다양한 컬러를 보고 싶어요", "\"arcCount\":2");
+            visitId.toString(),
+            "홍길동",
+            "ACTIVE",
+            "다양한 컬러를 보고 싶어요",
+            "\"arcCount\":2",
+            "\"resultType\":\"ARC\"",
+            "\"resultId\":\"" + resultId + "\"",
+            "\"arcNumber\":2",
+            "\"matchedAt\":\"2026-08-19T00:24:00Z\"",
+            "\"visitedAt\":\"2026-08-19T00:20:00Z\"");
   }
 
   @Test
@@ -100,14 +113,15 @@ class StaffVisitControllerTest {
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("STAFF-401"));
 
-    verify(staffVisitService, never()).getCurrentVisits(org.mockito.ArgumentMatchers.any());
+    verify(staffVisitService, never())
+        .getCurrentVisits(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
   }
 
   @Test
   void 현재_방문_고객이_없으면_빈_목록을_반환한다() throws Exception {
     UUID storeId = UUID.randomUUID();
     Staff staff = Staff.create(storeId, "김형진", "hashed-token", Set.of(LanguageCode.EN));
-    when(staffVisitService.getCurrentVisits(storeId)).thenReturn(List.of());
+    when(staffVisitService.getCurrentVisits(storeId, staff.getId())).thenReturn(List.of());
 
     mockMvc
         .perform(
@@ -127,7 +141,8 @@ class StaffVisitControllerTest {
     Operation operation = method.getAnnotation(Operation.class);
 
     assertThat(operation).isNotNull();
-    assertThat(operation.summary()).isEqualTo("현재 방문 고객 목록 조회");
+    assertThat(operation.summary()).isEqualTo("직원 방문 고객 목록 조회");
+    assertThat(operation.description()).contains("진행·대기 방문", "정상 종료 방문", "결과 정보");
   }
 
   @Test

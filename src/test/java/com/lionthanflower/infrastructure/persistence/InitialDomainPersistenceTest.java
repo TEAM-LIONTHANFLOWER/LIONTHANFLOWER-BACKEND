@@ -55,6 +55,11 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
   }
 
   @Test
+  void MCM_서울_기본_매장이_생성된다() throws SQLException {
+    assertThat(countStoresByCode("MCM-SEOUL")).isEqualTo(1);
+  }
+
+  @Test
   void 방문당_구매와_Arc와_Visit_Memory는_각각_하나만_저장할_수_있다() throws SQLException {
     PersistenceFixture fixture = PersistenceFixture.insertRequiredRows(dataSource);
 
@@ -155,6 +160,18 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
         PreparedStatement statement = connection.prepareStatement(sql)) {
       statement.setString(1, tableName);
       statement.setString(2, constraintName);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getInt(1);
+      }
+    }
+  }
+
+  private int countStoresByCode(String code) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement =
+            connection.prepareStatement("select count(*) from stores where code = ?")) {
+      statement.setString(1, code);
       try (ResultSet resultSet = statement.executeQuery()) {
         resultSet.next();
         return resultSet.getInt(1);

@@ -2,6 +2,7 @@
 package com.lionthanflower.domain.common.entity;
 
 public enum LanguageCode {
+  KO,
   EN,
   ZH,
   JA,

@@ -79,7 +79,11 @@ public class CustomerArcQueryService {
     Map<UUID, ArcRevision> revisions = loadActiveRevisions(arcs);
     Map<UUID, ProductVariant> variants = loadVariants(revisions.values());
     Map<UUID, Product> products = loadProducts(variants.values());
-    return arcs.stream().map(arc -> toSummary(arc, revisions, variants, products)).toList();
+    Map<UUID, Visit> visits = loadVisits(arcs);
+    Map<UUID, Store> stores = loadStores(visits.values());
+    return arcs.stream()
+        .map(arc -> toSummary(arc, revisions, variants, products, visits, stores))
+        .toList();
   }
 
   public ArcDetail getArc(UUID arcId, String rawToken) {
@@ -124,11 +128,15 @@ public class CustomerArcQueryService {
       Arc arc,
       Map<UUID, ArcRevision> revisions,
       Map<UUID, ProductVariant> variants,
-      Map<UUID, Product> products) {
+      Map<UUID, Product> products,
+      Map<UUID, Visit> visits,
+      Map<UUID, Store> stores) {
     ArcRevision revision = requireRevision(revisions.get(activeRevisionId(arc)));
     ArcInputSnapshot snapshot = deserialize(revision.getInputSnapshot(), ArcInputSnapshot.class);
     ArcGeneratedContent content =
         deserialize(revision.getGeneratedContent(), ArcGeneratedContent.class);
+    Visit visit = requireReference(visits.get(arc.getVisitId()));
+    Store store = requireReference(stores.get(visit.getStoreId()));
     List<ProductView> purchasedProducts = toProducts(snapshot, variants, products);
     if (purchasedProducts.isEmpty()) {
       throw new BusinessException(CommonErrorCode.INTERNAL_SERVER_ERROR);
@@ -136,7 +144,9 @@ public class CustomerArcQueryService {
     return new ArcSummary(
         arc.getId(),
         requireArcNumber(arc),
+        store.getName(),
         content.momentSummary(),
+        content.momentToRemember(),
         purchasedProducts.getFirst(),
         arc.getStatus(),
         arc.getSharedAt(),
@@ -147,6 +157,22 @@ public class CustomerArcQueryService {
     List<UUID> revisionIds = arcs.stream().map(this::activeRevisionId).toList();
     return arcRevisionRepository.findAllById(revisionIds).stream()
         .collect(Collectors.toMap(ArcRevision::getId, Function.identity()));
+  }
+
+  private Map<UUID, Visit> loadVisits(List<Arc> arcs) {
+    List<UUID> visitIds = arcs.stream().map(Arc::getVisitId).distinct().toList();
+    return visitRepository.findAllById(visitIds).stream()
+        .collect(Collectors.toMap(Visit::getId, Function.identity()));
+  }
+
+  private Map<UUID, Store> loadStores(Iterable<Visit> visits) {
+    List<UUID> storeIds =
+        java.util.stream.StreamSupport.stream(visits.spliterator(), false)
+            .map(Visit::getStoreId)
+            .distinct()
+            .toList();
+    return storeRepository.findAllById(storeIds).stream()
+        .collect(Collectors.toMap(Store::getId, Function.identity()));
   }
 
   private Map<UUID, ProductVariant> loadVariants(Iterable<ArcRevision> revisions) {
@@ -253,7 +279,9 @@ public class CustomerArcQueryService {
   public record ArcSummary(
       UUID arcId,
       int arcNumber,
+      String storeName,
       String momentSummary,
+      String momentToRemember,
       ProductView representativeProduct,
       ArcStatus status,
       Instant sharedAt,

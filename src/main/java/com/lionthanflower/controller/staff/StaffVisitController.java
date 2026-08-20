@@ -27,14 +27,17 @@ public class StaffVisitController {
     this.staffVisitService = staffVisitService;
   }
 
-  @Operation(summary = "현재 방문 고객 목록 조회", description = "직원이 현재 방문 중인 고객 목록을 조회합니다.")
+  @Operation(
+      summary = "직원 방문 고객 목록 조회",
+      description = "직원이 매장 진행·대기 방문과 본인이 담당한 정상 종료 방문을 방문 시각 및 결과 정보와 함께 조회합니다.")
   @GetMapping("/api/staff/visits")
   public ApiResponse<StaffVisitListResponse> getCurrentVisits(
       @AuthenticationPrincipal Staff staff) {
     if (staff == null) {
       throw new BusinessException(StaffErrorCode.UNAUTHORIZED);
     }
-    List<VisitSummaryResponse> visits = staffVisitService.getCurrentVisits(staff.getStoreId());
+    List<VisitSummaryResponse> visits =
+        staffVisitService.getCurrentVisits(staff.getStoreId(), staff.getId());
     return ApiResponse.success(new StaffVisitListResponse(visits));
   }
 

@@ -18,9 +18,9 @@ spring:
 
 springdoc:
   api-docs:
-    enabled: false
+    enabled: true
   swagger-ui:
-    enabled: false
+    enabled: true
 
 logging:
   level:
@@ -28,7 +28,11 @@ logging:
     com.lionthanflower: INFO
 
 app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081,https://develop.mcm-orbit-n34.pages.dev,https://mcm-orbit-n34.pages.dev}
   customer-session:
     cookie-secure: ${CUSTOMER_SESSION_COOKIE_SECURE:true}
+    cookie-same-site: ${CUSTOMER_SESSION_COOKIE_SAME_SITE:None}
   staff-session:
     cookie-secure: ${STAFF_SESSION_COOKIE_SECURE:true}
+    cookie-same-site: ${STAFF_SESSION_COOKIE_SAME_SITE:None}

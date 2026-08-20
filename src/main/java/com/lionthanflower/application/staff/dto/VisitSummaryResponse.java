@@ -5,6 +5,7 @@ import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
+import java.time.Instant;
 import java.util.UUID;
 
 public record VisitSummaryResponse(
@@ -15,9 +16,34 @@ public record VisitSummaryResponse(
     InteractionStyle interactionStyle,
     UUID staffId,
     String additionalRequest,
-    long arcCount) {
+    long arcCount,
+    UUID arcId,
+    UUID visitMemoryId,
+    Instant matchedAt,
+    Instant visitedAt,
+    Instant completedAt,
+    VisitResultType resultType,
+    UUID resultId,
+    Integer arcNumber) {
 
   public static VisitSummaryResponse of(Visit visit, String customerName, long arcCount) {
+    return of(visit, customerName, arcCount, null, null);
+  }
+
+  public static VisitSummaryResponse of(
+      Visit visit, String customerName, long arcCount, UUID arcId, UUID visitMemoryId) {
+    return of(visit, customerName, arcCount, arcId, visitMemoryId, null, null, null);
+  }
+
+  public static VisitSummaryResponse of(
+      Visit visit,
+      String customerName,
+      long arcCount,
+      UUID arcId,
+      UUID visitMemoryId,
+      VisitResultType resultType,
+      UUID resultId,
+      Integer arcNumber) {
     return new VisitSummaryResponse(
         visit.getId(),
         customerName,
@@ -26,6 +52,14 @@ public record VisitSummaryResponse(
         visit.getInteractionStyle(),
         visit.getStaffId(),
         visit.getAdditionalRequest(),
-        arcCount);
+        arcCount,
+        arcId,
+        visitMemoryId,
+        visit.getMatchedAt(),
+        visit.getCreatedAt(),
+        visit.getCompletedAt(),
+        resultType,
+        resultId,
+        arcNumber);
   }
 }

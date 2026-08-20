@@ -2,11 +2,11 @@
 
 - 상태. Accepted
 - 결정일. 2026-08-15
-- 범위. 고객 온보딩, 직원 연결, 구매 판단, Arc·Visit Memory 공유와 고객 방문 종료
+- 범위. 고객 온보딩, 직원 연결, 구매 판단, Arc·Visit Memory 생성 공개와 고객 방문 종료
 
 ## 문맥
 
-IA는 직원 추천 고객과 혼자 보기 고객을 같은 Visit에서 처리한다. 직원은 오프라인 응대 중 구매 여부를 확정하고, 구매 고객에게는 Arc를 공유한 뒤 고객이 최종 저장한다. 미구매 고객에게는 직원이 Visit Memory를 생성·공유하고, 고객은 웹 알림에서 기록을 확인한다. OpenAI 실패 시 직원은 같은 초안을 재생성할 수 있어야 한다.
+IA는 직원 추천 고객과 혼자 보기 고객을 같은 Visit에서 처리한다. 직원은 오프라인 응대 중 구매 여부를 확정하고, 구매 고객에게는 Arc 생성이 성공하면 즉시 공개한다. 미구매 고객에게는 직원이 Visit Memory를 생성·공유하고, 고객은 웹 알림에서 기록을 확인한다. OpenAI 실패 시 직원은 같은 초안을 재생성할 수 있어야 한다.
 
 ## 결정
 
@@ -17,7 +17,7 @@ IA는 직원 추천 고객과 혼자 보기 고객을 같은 Visit에서 처리�
 - `ACTIVE`. 직원이 연결되었거나 혼자 보기 고객이 응대 중이다.
 - `ARC_IN_PROGRESS`. 직원이 구매를 확정하고 Arc를 생성·공유하는 중이다.
 - `VISIT_MEMORY_IN_PROGRESS`. 직원이 미구매를 확정하고 Visit Memory를 생성하는 중이다.
-- `COMPLETED`. Arc 또는 Visit Memory가 최종 저장되어 방문이 정상 종료되었다.
+- `COMPLETED`. Arc 생성 성공 또는 Visit Memory 공유가 완료되어 방문이 정상 종료되었다.
 - `CANCELED`. 고객 이탈 또는 직원 취소로 종료되었다.
 
 ### Visit 전이
@@ -36,7 +36,7 @@ ACTIVE
   └─ 취소                       → CANCELED
 
 ARC_IN_PROGRESS
-  ├─ 고객 Arc 최종 저장          → COMPLETED
+  ├─ Arc 생성 성공·고객 공개       → COMPLETED
   └─ 취소                       → CANCELED
 
 VISIT_MEMORY_IN_PROGRESS
@@ -51,7 +51,7 @@ VISIT_MEMORY_IN_PROGRESS
 
 ```text
 Arc
-DRAFT → SHARED → FINALIZED
+DRAFT → SHARED
 
 ArcRevision
 GENERATING → READY
@@ -59,10 +59,12 @@ GENERATING → READY
 ```
 
 - 직원은 전체 입력 스냅샷과 템플릿 버전을 가진 `ArcRevision`을 생성한다.
-- OpenAI 결과는 `generatedContent`에 저장하고, READY 리비전만 고객에게 공유한다.
-- 고객에게 공유된 리비전의 ID를 Arc에 기록하며, 고객 최종 저장 시 그 리비전을 `finalRevisionId`로 확정한다.
-- 최종 저장된 Arc는 다시 공유하지 않는다.
+- OpenAI 결과는 `generatedContent`에 저장하고, 최초 READY 리비전은 생성 성공 트랜잭션에서 즉시 고객에게 공개한다.
+- Arc 생성 성공 시 공개 리비전의 ID를 `sharedRevisionId`에 기록하고 Visit을 `COMPLETED`로 전환한다.
+- `SHARED` Arc도 기존 입력 재생성 또는 수정 입력 재생성을 허용하며, 새 READY 리비전이 생성되면 `sharedRevisionId`를 교체한다.
+- 재생성 실패 시 기존 공개 리비전을 유지한다.
 - 수정 요청은 기존 리비전을 덮어쓰지 않고 새 리비전으로 보관한다.
+- 기존 `FINALIZED` Arc 데이터는 고객 조회 호환을 위해 유지하지만, 신규 Arc 흐름에서는 `FINALIZED`로 전환하지 않는다.
 
 ### Visit Memory 생성
 
@@ -78,13 +80,13 @@ GENERATING → READY
 - `Visit`, `Arc`, `ArcRevision`, `VisitMemory` 엔티티는 자신의 상태 전이와 필수 시각을 검증한다.
 - Application Service는 직원·방문·매장의 일치 여부와 인증 주체를 검증하고 구매·미구매 판단을 호출한다.
 - 외부 OpenAI 호출은 데이터베이스 트랜잭션 밖에서 수행하고 결과 상태 변경은 별도 트랜잭션으로 저장한다.
-- Arc 최종 저장과 Visit 완료, Visit Memory 최종 저장과 Visit 완료는 각각 하나의 애플리케이션 트랜잭션으로 처리한다.
+- Arc 생성 성공·공개와 Visit 완료, Visit Memory 공유와 Visit 완료는 각각 하나의 애플리케이션 트랜잭션으로 처리한다.
 
 ## 대안
 
-### 직원이 Arc를 최종 저장
+### 고객이 Arc를 최종 저장
 
-IA는 직원이 Arc를 생성하고 공유하지만 최종 저장 선택은 고객이 한다. 직원 최종 저장으로 제한하면 고객이 내용을 확인하고 확정하는 흐름을 잃는다.
+고객에게 별도 최종 저장 동작을 요구하지 않고, 직원의 Arc 생성 성공 시 고객에게 즉시 공개하고 Visit을 완료한다. 이후 수정·재생성은 같은 Arc의 새 리비전으로 처리한다.
 
 ### OpenAI 실패 시 Visit 완료 처리
 
@@ -101,12 +103,13 @@ IA는 직원이 Arc를 생성하고 공유하지만 최종 저장 선택은 고�
 - 두 응대 방식이 하나의 Visit 상태 모델로 수렴한다.
 - 구매 여부를 확정한 담당 직원을 기록하고 중복 구매·Arc·Visit Memory를 데이터베이스 유일 제약으로 방어할 수 있다.
 - OpenAI 실패를 숨기지 않고 재시도 가능한 상태로 보존한다.
-- Arc 입력과 결과의 시점별 스냅샷을 유지한다.
-- 공유와 동시에 고객에게 웹 알림을 남겨 별도 외부 푸시 인프라 없이 기록 확인을 유도한다.
+- Arc 입력과 결과의 시점별 스냅샷을 유지하면서 최신 성공 리비전을 고객에게 제공한다.
+- Visit Memory 공유와 동시에 고객에게 웹 알림을 남겨 별도 외부 푸시 인프라 없이 기록 확인을 유도한다.
 
 ### 비용과 제한
 
 - Application Service가 여러 Aggregate의 같은 매장·담당 직원 규칙을 검증해야 한다.
+- Visit은 최초 Arc 생성 성공 시 완료되므로 이후 직원 재생성은 완료된 Visit에 연결된 Arc를 통해 수행한다.
 - OpenAI 호출 재시도는 직원의 단일 초안 재생성으로 처리한다.
 - 외부 Push, SSE, WebSocket은 사용하지 않고 고객 웹 알림 목록과 읽음 상태로 범위를 제한한다.
 
@@ -121,7 +124,6 @@ IA는 직원이 Arc를 생성하고 공유하지만 최종 저장 선택은 고�
 - `domain/notification/entity/CustomerNotification.java`
 - `application/customer/CustomerNotificationService.java`
 - `application/customer/CustomerVisitMemoryQueryService.java`
-- `application/customer/CustomerArcCommandService.java`
 - `infrastructure/web/customer/CustomerNotificationController.java`
 - `infrastructure/web/customer/CustomerVisitMemoryController.java`
 - `V2__rebuild_domain_for_ia.sql`

@@ -40,10 +40,6 @@ public class StaffArcService {
     return stateService.getPreview(arcId, staff);
   }
 
-  public StaffArcRevisionResponse share(UUID arcId, UUID revisionId, Staff staff) {
-    return stateService.share(arcId, revisionId, staff);
-  }
-
   private StaffArcRevisionResponse generate(StaffArcStateService.GenerationContext context) {
     ArcGeneratedContent generatedContent;
     try {

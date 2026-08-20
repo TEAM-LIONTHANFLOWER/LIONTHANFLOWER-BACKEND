@@ -2,6 +2,7 @@
 package com.lionthanflower.application.staff;
 
 import com.lionthanflower.application.staff.dto.StaffVisitAssignmentResponse;
+import com.lionthanflower.application.staff.dto.VisitResultType;
 import com.lionthanflower.application.staff.dto.VisitSummaryResponse;
 import com.lionthanflower.domain.arc.entity.Arc;
 import com.lionthanflower.domain.arc.entity.ArcStatus;
@@ -11,11 +12,15 @@ import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.Visit;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
 import com.lionthanflower.domain.visit.error.VisitErrorCode;
+import com.lionthanflower.domain.visitmemory.entity.VisitMemory;
 import com.lionthanflower.global.error.BusinessException;
 import com.lionthanflower.infrastructure.persistence.ArcRepository;
 import com.lionthanflower.infrastructure.persistence.CustomerRepository;
+import com.lionthanflower.infrastructure.persistence.VisitMemoryRepository;
 import com.lionthanflower.infrastructure.persistence.VisitRepository;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,27 +32,37 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class StaffVisitService {
 
-  private static final Set<VisitStatus> EXCLUDED_STATUSES =
-      Set.of(VisitStatus.COMPLETED, VisitStatus.CANCELED);
+  private static final Set<VisitStatus> VISIBLE_VISIT_STATUSES =
+      Set.of(
+          VisitStatus.WAITING_FOR_STAFF,
+          VisitStatus.ACTIVE,
+          VisitStatus.ARC_IN_PROGRESS,
+          VisitStatus.VISIT_MEMORY_IN_PROGRESS);
   private static final Set<ArcStatus> VISIBLE_ARC_STATUSES =
       Set.of(ArcStatus.SHARED, ArcStatus.FINALIZED);
 
   private final VisitRepository visitRepository;
   private final CustomerRepository customerRepository;
   private final ArcRepository arcRepository;
+  private final VisitMemoryRepository visitMemoryRepository;
 
   public StaffVisitService(
       VisitRepository visitRepository,
       CustomerRepository customerRepository,
-      ArcRepository arcRepository) {
+      ArcRepository arcRepository,
+      VisitMemoryRepository visitMemoryRepository) {
     this.visitRepository = visitRepository;
     this.customerRepository = customerRepository;
     this.arcRepository = arcRepository;
+    this.visitMemoryRepository = visitMemoryRepository;
   }
 
   @Transactional(readOnly = true)
-  public List<VisitSummaryResponse> getCurrentVisits(UUID storeId) {
-    List<Visit> visits = visitRepository.findByStoreIdAndStatusNotIn(storeId, EXCLUDED_STATUSES);
+  public List<VisitSummaryResponse> getCurrentVisits(UUID storeId, UUID staffId) {
+    List<Visit> visits =
+        new ArrayList<>(visitRepository.findByStoreIdAndStatusIn(storeId, VISIBLE_VISIT_STATUSES));
+    visits.addAll(
+        visitRepository.findByStoreIdAndStaffIdAndStatus(storeId, staffId, VisitStatus.COMPLETED));
 
     Set<UUID> customerIds = visits.stream().map(Visit::getCustomerId).collect(Collectors.toSet());
     Map<UUID, String> customerNames =
@@ -61,14 +76,42 @@ public class StaffVisitService {
                 .stream()
                 .map(Arc::getCustomerId)
                 .collect(Collectors.groupingBy(customerId -> customerId, Collectors.counting()));
+    Set<UUID> visitIds = visits.stream().map(Visit::getId).collect(Collectors.toSet());
+    Map<UUID, Arc> arcsByVisitId =
+        visitIds.isEmpty()
+            ? Map.of()
+            : arcRepository.findByVisitIdIn(visitIds).stream()
+                .collect(Collectors.toMap(Arc::getVisitId, arc -> arc));
+    Map<UUID, VisitMemory> visitMemoriesByVisitId =
+        visitIds.isEmpty()
+            ? Map.of()
+            : visitMemoryRepository.findByVisitIdIn(visitIds).stream()
+                .collect(Collectors.toMap(VisitMemory::getVisitId, memory -> memory));
 
     return visits.stream()
+        .sorted(
+            Comparator.comparing(
+                Visit::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
         .map(
-            visit ->
-                VisitSummaryResponse.of(
-                    visit,
-                    customerNames.get(visit.getCustomerId()),
-                    arcCounts.getOrDefault(visit.getCustomerId(), 0L)))
+            visit -> {
+              Arc arc = arcsByVisitId.get(visit.getId());
+              VisitMemory visitMemory = visitMemoriesByVisitId.get(visit.getId());
+              VisitResultType resultType =
+                  arc != null
+                      ? VisitResultType.ARC
+                      : visitMemory == null ? null : VisitResultType.VISIT_MEMORY;
+              UUID resultId =
+                  arc != null ? arc.getId() : visitMemory == null ? null : visitMemory.getId();
+              return VisitSummaryResponse.of(
+                  visit,
+                  customerNames.get(visit.getCustomerId()),
+                  arcCounts.getOrDefault(visit.getCustomerId(), 0L),
+                  arc == null ? null : arc.getId(),
+                  visitMemory == null ? null : visitMemory.getId(),
+                  resultType,
+                  resultId,
+                  arc == null ? null : arc.getArcNumber());
+            })
         .toList();
   }
 

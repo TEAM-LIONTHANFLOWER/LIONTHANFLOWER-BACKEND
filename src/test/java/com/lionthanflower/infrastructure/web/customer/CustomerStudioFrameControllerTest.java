@@ -34,28 +34,30 @@ class CustomerStudioFrameControllerTest {
         .thenReturn(
             List.of(
                 new StudioFrameService.StudioFrame(
-                    FrameType.FRAME_1,
-                    "MCM Frame 1",
-                    "https://cdn.example.com/frame-1/overlay.png"),
+                    FrameType.FRAME_1, "MCM Frame 1", "/mcm-studio/Frame_1.svg"),
                 new StudioFrameService.StudioFrame(
-                    FrameType.FRAME_2,
-                    "MCM Frame 2",
-                    "https://cdn.example.com/frame-2/overlay.png")));
+                    FrameType.FRAME_2, "MCM Frame 2", "/mcm-studio/Frame_2.svg"),
+                new StudioFrameService.StudioFrame(
+                    FrameType.FRAME_3, "MCM Frame 3", "/mcm-studio/Frame_3.svg"),
+                new StudioFrameService.StudioFrame(
+                    FrameType.FRAME_4, "MCM Frame 4", "/mcm-studio/Frame_4.svg")));
 
     mockMvc
         .perform(get("/api/customers/studio/frames"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
-        .andExpect(jsonPath("$.data.length()").value(2))
+        .andExpect(jsonPath("$.data.length()").value(4))
         .andExpect(jsonPath("$.data[0].frameType").value("FRAME_1"))
         .andExpect(jsonPath("$.data[0].displayName").value("MCM Frame 1"))
-        .andExpect(
-            jsonPath("$.data[0].overlayImageUrl")
-                .value("https://cdn.example.com/frame-1/overlay.png"))
+        .andExpect(jsonPath("$.data[0].overlayImageUrl").value("/mcm-studio/Frame_1.svg"))
         .andExpect(jsonPath("$.data[1].frameType").value("FRAME_2"))
         .andExpect(jsonPath("$.data[1].displayName").value("MCM Frame 2"))
-        .andExpect(
-            jsonPath("$.data[1].overlayImageUrl")
-                .value("https://cdn.example.com/frame-2/overlay.png"));
+        .andExpect(jsonPath("$.data[1].overlayImageUrl").value("/mcm-studio/Frame_2.svg"))
+        .andExpect(jsonPath("$.data[2].frameType").value("FRAME_3"))
+        .andExpect(jsonPath("$.data[2].displayName").value("MCM Frame 3"))
+        .andExpect(jsonPath("$.data[2].overlayImageUrl").value("/mcm-studio/Frame_3.svg"))
+        .andExpect(jsonPath("$.data[3].frameType").value("FRAME_4"))
+        .andExpect(jsonPath("$.data[3].displayName").value("MCM Frame 4"))
+        .andExpect(jsonPath("$.data[3].overlayImageUrl").value("/mcm-studio/Frame_4.svg"));
   }
 }
