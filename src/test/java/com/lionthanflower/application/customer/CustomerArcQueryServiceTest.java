@@ -40,6 +40,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -72,12 +75,14 @@ class CustomerArcQueryServiceTest {
             tokenManager);
   }
 
-  @Test
-  void 고객의_공개_Arc_목록을_대표_제품과_요약으로_조합한다() {
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"SEOUL", "PARIS"})
+  void 고객의_공개_Arc_목록을_대표_제품과_요약으로_조합한다(String cityCode) {
     String rawToken = "known-token";
     Customer customer = Customer.create(tokenManager.hash(rawToken));
     UUID staffId = UUID.randomUUID();
-    Store store = Store.create("MCM HAUS", "MCM-SEOUL", "KR");
+    Store store = Store.create("MCM HAUS", "MCM-SEOUL", "KR", cityCode);
     Visit visit = Visit.create(customer.getId(), store.getId());
     Product product = Product.create("BAG-001", "A Bag", ProductCategory.BAG);
     ProductVariant variant =
@@ -111,6 +116,7 @@ class CustomerArcQueryServiceTest {
     assertThat(result.getFirst().representativeProduct().productName()).isEqualTo("A Bag");
     assertThat(result.getFirst())
         .hasFieldOrPropertyWithValue("storeName", "MCM HAUS")
+        .hasFieldOrPropertyWithValue("cityCode", cityCode)
         .hasFieldOrPropertyWithValue("momentToRemember", "수납공간을 오래 고민했습니다.");
     verify(visitRepository).findAllById(List.of(visit.getId()));
     verify(storeRepository).findAllById(List.of(store.getId()));
@@ -137,11 +143,13 @@ class CustomerArcQueryServiceTest {
         .isEqualTo(CommonErrorCode.UNAUTHORIZED);
   }
 
-  @Test
-  void 최종_저장된_Arc의_상세는_최종_리비전과_전체_구매_제품을_반환한다() {
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"SEOUL", "PARIS"})
+  void 최종_저장된_Arc의_상세는_최종_리비전과_전체_구매_제품을_반환한다(String cityCode) {
     String rawToken = "known-token";
     Customer customer = Customer.create(tokenManager.hash(rawToken));
-    Store store = Store.create("MCM HAUS", "MCM-SEOUL", "KR");
+    Store store = Store.create("MCM HAUS", "MCM-SEOUL", "KR", cityCode);
     Visit visit = Visit.create(customer.getId(), store.getId());
     UUID staffId = UUID.randomUUID();
     Product product = Product.create("BAG-001", "A Bag", ProductCategory.BAG);
@@ -183,6 +191,7 @@ class CustomerArcQueryServiceTest {
     CustomerArcQueryService.ArcDetail result = service.getArc(arc.getId(), rawToken);
 
     assertThat(result.arcNumber()).isEqualTo(1);
+    assertThat(result).hasFieldOrPropertyWithValue("cityCode", cityCode);
     assertThat(result.customerName()).isEqualTo("Ethan");
     assertThat(result.momentSummary()).isEqualTo("최종 요약");
     assertThat(result.purchasedProducts())
@@ -212,7 +221,7 @@ class CustomerArcQueryServiceTest {
     return new ArcInputSnapshot(
         java.time.LocalDate.of(2026, 8, 13),
         "KOREA",
-        "MCM HAUS",
+        "다른 매장 입력",
         List.of(purchasedVariantId),
         java.util.Set.of(ProductCategory.BAG),
         java.util.Set.of(PreferredColor.BLACK),
