@@ -19,6 +19,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -35,8 +38,10 @@ class CustomerArcControllerTest {
 
   @MockitoBean private CustomerArcQueryService service;
 
-  @Test
-  void 고객_Arc_목록을_대표_제품과_함께_반환한다() throws Exception {
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"SEOUL", "PARIS"})
+  void 고객_Arc_목록을_대표_제품과_함께_반환한다(String cityCode) throws Exception {
     UUID arcId = UUID.randomUUID();
     CustomerArcQueryService.ProductView product =
         new CustomerArcQueryService.ProductView(
@@ -51,6 +56,7 @@ class CustomerArcControllerTest {
                     arcId,
                     2,
                     "MCM HAUS",
+                    cityCode,
                     "균형을 중요하게 생각합니다.",
                     "수납공간을 오래 고민했습니다.",
                     product,
@@ -65,6 +71,8 @@ class CustomerArcControllerTest {
         .andExpect(jsonPath("$.data[0].arcId").value(arcId.toString()))
         .andExpect(jsonPath("$.data[0].arcNumber").value(2))
         .andExpect(jsonPath("$.data[0].storeName").value("MCM HAUS"))
+        .andExpect(jsonPath("$.data[0].cityCode").hasJsonPath())
+        .andExpect(jsonPath("$.data[0].cityCode").value(cityCode))
         .andExpect(jsonPath("$.data[0].momentSummary").value("균형을 중요하게 생각합니다."))
         .andExpect(jsonPath("$.data[0].momentToRemember").value("수납공간을 오래 고민했습니다."))
         .andExpect(jsonPath("$.data[0].representativeProduct.productName").value("A Bag"))
@@ -82,8 +90,10 @@ class CustomerArcControllerTest {
     assertThat(operation.description()).contains("매장 이름", "편지 본문");
   }
 
-  @Test
-  void 고객_Arc_상세와_전체_구매_제품을_반환한다() throws Exception {
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"SEOUL", "PARIS"})
+  void 고객_Arc_상세와_전체_구매_제품을_반환한다(String cityCode) throws Exception {
     UUID arcId = UUID.randomUUID();
     CustomerArcQueryService.ProductView product =
         new CustomerArcQueryService.ProductView(
@@ -98,6 +108,7 @@ class CustomerArcControllerTest {
                 2,
                 "Ethan",
                 "MCM HAUS",
+                cityCode,
                 "KR",
                 ArcStatus.FINALIZED,
                 Instant.parse("2026-08-15T12:01:00Z"),
@@ -114,6 +125,8 @@ class CustomerArcControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.customerName").value("Ethan"))
         .andExpect(jsonPath("$.data.storeName").value("MCM HAUS"))
+        .andExpect(jsonPath("$.data.cityCode").hasJsonPath())
+        .andExpect(jsonPath("$.data.cityCode").value(cityCode))
         .andExpect(jsonPath("$.data.preferences[1]").value("차분한 컬러"))
         .andExpect(jsonPath("$.data.purchasedProducts.length()").value(1))
         .andExpect(jsonPath("$.data.purchasedProducts[0].imageObjectKey").doesNotExist());
