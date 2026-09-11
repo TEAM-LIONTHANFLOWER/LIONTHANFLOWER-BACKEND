@@ -26,7 +26,9 @@ public class StaffVisitMemoryController {
     this.staffVisitMemoryService = staffVisitMemoryService;
   }
 
-  @Operation(summary = "Visit Memory 생성", description = "직원 입력을 바탕으로 Visit Memory 생성을 시작합니다.")
+  @Operation(
+      summary = "Visit Memory 생성",
+      description = "직원 입력을 바탕으로 방문의 serviceLanguage에 맞춰 Visit Memory 본문을 생성합니다.")
   @PostMapping("/api/staff/visits/{visitId}/visit-memories")
   public ApiResponse<StaffVisitMemoryResponse> create(
       @PathVariable UUID visitId,
@@ -46,7 +48,9 @@ public class StaffVisitMemoryController {
         staffVisitMemoryService.getPreview(visitMemoryId, requireStaff(staff)));
   }
 
-  @Operation(summary = "Visit Memory 재생성", description = "기존 또는 수정된 입력으로 Visit Memory를 다시 생성합니다.")
+  @Operation(
+      summary = "Visit Memory 재생성",
+      description = "기존 또는 수정된 입력과 방문의 serviceLanguage로 Visit Memory 본문을 다시 생성합니다.")
   @PostMapping("/api/staff/visit-memories/{visitMemoryId}/regenerations")
   public ApiResponse<StaffVisitMemoryResponse> regenerate(
       @PathVariable UUID visitMemoryId,

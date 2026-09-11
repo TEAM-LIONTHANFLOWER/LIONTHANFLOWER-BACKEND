@@ -26,7 +26,7 @@ public class StaffArcController {
     this.staffArcService = staffArcService;
   }
 
-  @Operation(summary = "Arc 생성", description = "직원 입력을 바탕으로 OpenAI Arc 생성을 시작합니다.")
+  @Operation(summary = "Arc 생성", description = "직원 입력을 바탕으로 방문의 serviceLanguage에 맞춰 Arc 본문을 생성합니다.")
   @PostMapping("/api/staff/visits/{visitId}/arcs")
   public ApiResponse<StaffArcRevisionResponse> createArc(
       @PathVariable UUID visitId,
@@ -42,7 +42,9 @@ public class StaffArcController {
     return ApiResponse.success(staffArcService.getPreview(arcId, requireStaff(staff)));
   }
 
-  @Operation(summary = "Arc 재생성", description = "기존 또는 수정된 입력으로 새로운 Arc 리비전을 생성합니다.")
+  @Operation(
+      summary = "Arc 재생성",
+      description = "기존 또는 수정된 입력과 방문의 serviceLanguage로 새 Arc 리비전을 생성합니다. 기존 본문은 재생성 성공 시 교체됩니다.")
   @PostMapping("/api/staff/arcs/{arcId}/revisions")
   public ApiResponse<StaffArcRevisionResponse> regenerate(
       @PathVariable UUID arcId,

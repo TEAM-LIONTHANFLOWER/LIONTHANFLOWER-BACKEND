@@ -38,6 +38,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -66,10 +68,11 @@ class StaffVisitMemoryStateServiceTest {
     storeId = UUID.randomUUID();
   }
 
-  @Test
-  void Solo_방문은_Visit_Memory_생성_직원을_담당자로_자동_배정한다() {
+  @ParameterizedTest
+  @EnumSource(LanguageCode.class)
+  void Solo_방문은_Visit_Memory_생성_직원을_담당자로_자동_배정한다(LanguageCode language) {
     Staff staff = staff();
-    Visit visit = visit(InteractionStyle.SELF_GUIDED);
+    Visit visit = visit(InteractionStyle.SELF_GUIDED, language);
     Customer customer = customer(visit.getCustomerId(), "홍길동");
     when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
     when(customerRepository.findById(visit.getCustomerId())).thenReturn(Optional.of(customer));
@@ -86,6 +89,7 @@ class StaffVisitMemoryStateServiceTest {
     assertThat(visit.getStaffId()).isEqualTo(staff.getId());
     assertThat(visit.getStatus()).isEqualTo(VisitStatus.VISIT_MEMORY_IN_PROGRESS);
     assertThat(context.generationCommand().customerName()).isEqualTo("홍길동");
+    assertThat(context.generationCommand().serviceLanguage()).isEqualTo(language);
   }
 
   @Test
@@ -156,10 +160,11 @@ class StaffVisitMemoryStateServiceTest {
                 assertThat(exception.errorCode()).isEqualTo(VisitMemoryErrorCode.NOT_ASSIGNABLE));
   }
 
-  @Test
-  void Visit_Memory_진행_중인_방문은_재생성할_수_있다() {
+  @ParameterizedTest
+  @EnumSource(LanguageCode.class)
+  void Visit_Memory_진행_중인_방문은_재생성할_수_있다(LanguageCode language) {
     Staff staff = staff();
-    Visit visit = visit(InteractionStyle.SELF_GUIDED);
+    Visit visit = visit(InteractionStyle.SELF_GUIDED, language);
     visit.assignStaff(staff.getId(), Instant.now());
     visit.confirmNoPurchase(staff.getId(), Instant.now());
     Customer customer = customer(visit.getCustomerId(), "홍길동");
@@ -180,6 +185,7 @@ class StaffVisitMemoryStateServiceTest {
 
     assertThat(memory.getStatus()).isEqualTo(VisitMemoryStatus.GENERATING);
     assertThat(context.generationCommand().customerName()).isEqualTo("홍길동");
+    assertThat(context.generationCommand().serviceLanguage()).isEqualTo(language);
   }
 
   private Staff staff() {
@@ -193,9 +199,12 @@ class StaffVisitMemoryStateServiceTest {
   }
 
   private Visit visit(InteractionStyle interactionStyle) {
+    return visit(interactionStyle, LanguageCode.EN);
+  }
+
+  private Visit visit(InteractionStyle interactionStyle, LanguageCode language) {
     Visit visit = Visit.create(UUID.randomUUID(), storeId);
-    visit.completeOnboarding(
-        com.lionthanflower.domain.common.entity.LanguageCode.EN, interactionStyle, null);
+    visit.completeOnboarding(language, interactionStyle, null);
     return visit;
   }
 

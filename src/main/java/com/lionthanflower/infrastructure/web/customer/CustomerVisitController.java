@@ -7,6 +7,7 @@ import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
 import com.lionthanflower.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -95,7 +96,11 @@ public class CustomerVisitController {
       @NotBlank(message = "고객 이름은 비어 있을 수 없습니다.")
           @Size(max = 100, message = "고객 이름은 100자 이하여야 합니다.")
           String name,
-      @NotNull(message = "서비스 이용 언어는 필수입니다.") LanguageCode serviceLanguage,
+      @Schema(
+              description = "서비스 이용 및 Arc·Visit Memory 본문 생성 언어. KO, EN, ZH, JA, RU, DE, FR 지원.",
+              example = "DE")
+          @NotNull(message = "서비스 이용 언어는 필수입니다.")
+          LanguageCode serviceLanguage,
       @NotNull(message = "직원 응대 방식은 필수입니다.") InteractionStyle interactionStyle,
       @Size(max = 1000, message = "추가 요청은 1,000자 이하여야 합니다.") String additionalRequest) {
 

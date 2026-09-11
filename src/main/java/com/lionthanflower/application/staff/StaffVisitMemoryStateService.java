@@ -167,7 +167,10 @@ public class StaffVisitMemoryStateService {
     return new GenerationContext(
         memory.getId(),
         new VisitMemoryGenerationCommand(
-            customer.getName(), visit.getAdditionalRequest(), inputSnapshot));
+            customer.getName(),
+            visit.getServiceLanguage(),
+            visit.getAdditionalRequest(),
+            inputSnapshot));
   }
 
   private Visit findVisit(UUID visitId, Staff staff) {

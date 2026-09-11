@@ -223,7 +223,11 @@ public class StaffArcStateService {
     return new GenerationContext(
         arc.getId(),
         revision.getId(),
-        new ArcGenerationCommand(customer.getName(), visit.getAdditionalRequest(), inputSnapshot));
+        new ArcGenerationCommand(
+            customer.getName(),
+            visit.getServiceLanguage(),
+            visit.getAdditionalRequest(),
+            inputSnapshot));
   }
 
   private Visit findVisit(UUID visitId, Staff staff) {
