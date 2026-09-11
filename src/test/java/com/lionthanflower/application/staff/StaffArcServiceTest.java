@@ -50,7 +50,8 @@ class StaffArcServiceTest {
     UUID revisionId = UUID.randomUUID();
     Staff staff = Staff.create(UUID.randomUUID(), "김형진", "hashed-token", Set.of(LanguageCode.EN));
     StaffArcGenerationRequest request = new StaffArcGenerationRequest(snapshot());
-    ArcGenerationCommand command = new ArcGenerationCommand("홍길동", "컬러 요청", snapshot());
+    ArcGenerationCommand command =
+        new ArcGenerationCommand("홍길동", LanguageCode.KO, "컬러 요청", snapshot());
     StaffArcStateService.GenerationContext context =
         new StaffArcStateService.GenerationContext(arcId, revisionId, command);
     ArcGeneratedContent content = new ArcGeneratedContent("오늘의 순간", List.of("실용성"), "기억할 순간");
@@ -81,7 +82,8 @@ class StaffArcServiceTest {
     UUID revisionId = UUID.randomUUID();
     Staff staff = Staff.create(UUID.randomUUID(), "김형진", "hashed-token", Set.of(LanguageCode.EN));
     StaffArcGenerationRequest request = new StaffArcGenerationRequest(snapshot());
-    ArcGenerationCommand command = new ArcGenerationCommand("홍길동", "컬러 요청", snapshot());
+    ArcGenerationCommand command =
+        new ArcGenerationCommand("홍길동", LanguageCode.KO, "컬러 요청", snapshot());
     StaffArcStateService.GenerationContext context =
         new StaffArcStateService.GenerationContext(UUID.randomUUID(), revisionId, command);
     StaffArcRevisionResponse expected =

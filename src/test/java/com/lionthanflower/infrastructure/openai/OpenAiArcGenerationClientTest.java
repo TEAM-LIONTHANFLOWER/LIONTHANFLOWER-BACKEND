@@ -19,14 +19,18 @@ import com.lionthanflower.domain.arc.entity.PreferredStyle;
 import com.lionthanflower.domain.arc.entity.ProductExplanationPreference;
 import com.lionthanflower.domain.arc.entity.PurchaseCriterion;
 import com.lionthanflower.domain.arc.entity.PurchaseDecisionStyle;
+import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.product.entity.ProductCategory;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -42,10 +46,19 @@ class OpenAiArcGenerationClientTest {
     client = new OpenAiArcGenerationClient(builder.build(), "test-api-key", "test-model");
   }
 
-  @Test
-  void Responses_API의_생성_결과를_Arc_콘텐츠로_변환한다() {
+  @ParameterizedTest
+  @EnumSource(LanguageCode.class)
+  void 지원_언어를_전달하고_Responses_API_결과를_변환한다(LanguageCode language) {
     server
         .expect(requestTo("/v1/responses"))
+        .andExpect(
+            request -> {
+              var mapper = new ObjectMapper();
+              var body = mapper.readTree(((MockClientHttpRequest) request).getBodyAsString());
+              var input = mapper.readTree(body.at("/input/1/content/0/text").asText());
+              assertThat(input.path("serviceLanguage").asText()).isEqualTo(language.name());
+              assertThat(body.at("/input/0/content/0/text").asText()).contains(language.name());
+            })
         .andExpect(method(org.springframework.http.HttpMethod.POST))
         .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer test-api-key"))
         .andExpect(content().string(org.hamcrest.Matchers.containsString("2026-08-13")))
@@ -61,7 +74,7 @@ class OpenAiArcGenerationClientTest {
                     .toString(),
                 MediaType.APPLICATION_JSON));
 
-    ArcGeneratedContent result = client.generate(command());
+    ArcGeneratedContent result = client.generate(command(language));
 
     assertThat(result.momentSummary()).isEqualTo("차분한 여행 가방을 발견했습니다.");
     assertThat(result.preferences()).containsExactly("실용적인 디자인");
@@ -113,7 +126,11 @@ class OpenAiArcGenerationClientTest {
   }
 
   private ArcGenerationCommand command() {
-    return new ArcGenerationCommand("홍길동", "다양한 컬러를 보고 싶어요", snapshot());
+    return command(LanguageCode.KO);
+  }
+
+  private ArcGenerationCommand command(LanguageCode language) {
+    return new ArcGenerationCommand("홍길동", language, "다양한 컬러를 보고 싶어요", snapshot());
   }
 
   private ArcInputSnapshot snapshot() {

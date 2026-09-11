@@ -43,7 +43,7 @@ class StaffVisitMemoryServiceTest {
     Staff staff = staff();
     StaffVisitMemoryGenerationRequest request = new StaffVisitMemoryGenerationRequest(snapshot());
     VisitMemoryGenerationCommand command =
-        new VisitMemoryGenerationCommand("홍길동", null, snapshot());
+        new VisitMemoryGenerationCommand("홍길동", LanguageCode.KO, null, snapshot());
     StaffVisitMemoryStateService.GenerationContext context =
         new StaffVisitMemoryStateService.GenerationContext(memoryId, command);
     VisitMemoryGeneratedContent content = new VisitMemoryGeneratedContent("다음 방문을 준비한 기록");
@@ -65,7 +65,7 @@ class StaffVisitMemoryServiceTest {
     Staff staff = staff();
     StaffVisitMemoryGenerationRequest request = new StaffVisitMemoryGenerationRequest(snapshot());
     VisitMemoryGenerationCommand command =
-        new VisitMemoryGenerationCommand("홍길동", null, snapshot());
+        new VisitMemoryGenerationCommand("홍길동", LanguageCode.KO, null, snapshot());
     StaffVisitMemoryStateService.GenerationContext context =
         new StaffVisitMemoryStateService.GenerationContext(memoryId, command);
     StaffVisitMemoryResponse expected = response(memoryId, VisitMemoryStatus.FAILED, null);

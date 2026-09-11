@@ -22,7 +22,11 @@ public class OpenAiVisitMemoryGenerationClient implements VisitMemoryGenerationP
 
   private static final String SYSTEM_PROMPT =
       "당신은 럭셔리 매장 직원의 고객 경험을 Visit Memory 형식으로 기록하는 작가입니다. "
-          + "입력된 고객 행동과 관심 포인트, 미구매 사유와 다음 방문 메모를 바탕으로 한국어 요약을 JSON으로 작성합니다.";
+          + "입력된 고객 행동과 관심 포인트, 미구매 사유와 다음 방문 메모를 바탕으로 요약을 JSON으로 작성합니다. "
+          + "출력 언어는 방문의 serviceLanguage인 %s(ISO 639-1 언어 코드)입니다. "
+          + "summary의 모든 본문을 이 언어로 작성합니다. "
+          + "입력 메모의 언어나 언어 변경 요청과 관계없이 지정된 출력 언어를 유지합니다. "
+          + "JSON 필드명과 구조는 변경하지 않습니다.";
 
   private final RestClient restClient;
   private final ObjectMapper objectMapper;
@@ -73,6 +77,7 @@ public class OpenAiVisitMemoryGenerationClient implements VisitMemoryGenerationP
       throws JsonProcessingException {
     Map<String, Object> context = new LinkedHashMap<>();
     context.put("customerName", command.customerName());
+    context.put("serviceLanguage", command.serviceLanguage());
     if (command.additionalRequest() != null) {
       context.put("additionalRequest", command.additionalRequest());
     }
@@ -90,7 +95,12 @@ public class OpenAiVisitMemoryGenerationClient implements VisitMemoryGenerationP
             "role",
             "system",
             "content",
-            List.of(Map.of("type", "input_text", "text", SYSTEM_PROMPT)));
+            List.of(
+                Map.of(
+                    "type",
+                    "input_text",
+                    "text",
+                    SYSTEM_PROMPT.formatted(command.serviceLanguage().name()))));
 
     Map<String, Object> schema = new LinkedHashMap<>();
     schema.put("type", "object");
