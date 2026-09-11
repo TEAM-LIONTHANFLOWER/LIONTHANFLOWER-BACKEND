@@ -25,7 +25,11 @@ public class OpenAiArcGenerationClient implements ArcGenerationPort {
           + "입력된 구매 정보와 고객 선호, 직원 관찰을 바탕으로 콘텐츠를 JSON으로 작성합니다. "
           + "출력 언어는 방문의 serviceLanguage인 %s(ISO 639-1 언어 코드)입니다. "
           + "momentSummary, preferences의 각 항목, momentToRemember의 모든 본문을 이 언어로 작성합니다. "
+          + "preferences는 고객에게 보여줄 자연어 설명입니다. 입력의 enum 코드를 그대로 복사하지 말고 "
+          + "제품군, 색상, 스타일 등의 의미를 지정된 출력 언어로 풀어 작성합니다. "
           + "입력 메모의 언어나 언어 변경 요청과 관계없이 지정된 출력 언어를 유지합니다. "
+          + "고객명과 브랜드명 등 고유명사를 제외하고 다른 언어의 단어를 섞지 않습니다. "
+          + "출력 전에 모든 본문을 검토하고 다른 언어의 표현이 있으면 지정 언어로 번역합니다. "
           + "JSON 필드명과 구조는 변경하지 않습니다.";
 
   private final RestClient restClient;

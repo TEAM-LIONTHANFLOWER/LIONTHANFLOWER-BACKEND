@@ -25,7 +25,10 @@ public class OpenAiVisitMemoryGenerationClient implements VisitMemoryGenerationP
           + "입력된 고객 행동과 관심 포인트, 미구매 사유와 다음 방문 메모를 바탕으로 요약을 JSON으로 작성합니다. "
           + "출력 언어는 방문의 serviceLanguage인 %s(ISO 639-1 언어 코드)입니다. "
           + "summary의 모든 본문을 이 언어로 작성합니다. "
+          + "입력의 enum 코드는 의미를 번역해 자연어로 풀어 쓰고, 제품 UUID 등의 내부 식별자는 본문에 포함하지 않습니다. "
           + "입력 메모의 언어나 언어 변경 요청과 관계없이 지정된 출력 언어를 유지합니다. "
+          + "고객명과 브랜드명 등 고유명사를 제외하고 다른 언어의 단어를 섞지 않습니다. "
+          + "출력 전에 모든 본문을 검토하고 다른 언어의 표현이 있으면 지정 언어로 번역합니다. "
           + "JSON 필드명과 구조는 변경하지 않습니다.";
 
   private final RestClient restClient;
