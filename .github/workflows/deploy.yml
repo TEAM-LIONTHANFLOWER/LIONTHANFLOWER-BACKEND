@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
   packages: write
 
 concurrency:
@@ -53,6 +54,41 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
             ${{ env.IMAGE_NAME }}:latest
+
+      - name: Configure AWS credentials
+        id: configure-aws
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Authorize runner SSH
+        env:
+          DEPLOY_SECURITY_GROUP_ID: ${{ vars.DEPLOY_SECURITY_GROUP_ID }}
+        run: |
+          set -euo pipefail
+          stale_rule_ids="$(aws ec2 describe-security-group-rules \
+            --filters "Name=group-id,Values=$DEPLOY_SECURITY_GROUP_ID" \
+            --query "SecurityGroupRules[?Description != null && starts_with(Description, 'mcm-orbit-github-actions-')].SecurityGroupRuleId" \
+            --output text)"
+          for rule_id in $stale_rule_ids; do
+            aws ec2 revoke-security-group-ingress \
+              --group-id "$DEPLOY_SECURITY_GROUP_ID" \
+              --security-group-rule-ids "$rule_id"
+          done
+
+          runner_ip="$(curl -4 --fail --silent --show-error https://checkip.amazonaws.com | tr -d '[:space:]')"
+          if [[ ! "$runner_ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+            echo "Unable to determine the GitHub runner IPv4 address" >&2
+            exit 1
+          fi
+
+          rule_id="$(aws ec2 authorize-security-group-ingress \
+            --group-id "$DEPLOY_SECURITY_GROUP_ID" \
+            --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$runner_ip/32,Description=mcm-orbit-github-actions-$GITHUB_RUN_ID}]" \
+            --query 'SecurityGroupRules[0].SecurityGroupRuleId' \
+            --output text)"
+          test -n "$rule_id"
 
       - name: Prepare SSH
         env:
@@ -176,3 +212,19 @@ jobs:
           ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
             'cd /opt/mcm-orbit && sudo docker compose -f compose.production.yml logs --tail=100'
           exit 1
+
+      - name: Revoke runner SSH
+        if: ${{ always() && steps.configure-aws.outcome == 'success' }}
+        env:
+          DEPLOY_SECURITY_GROUP_ID: ${{ vars.DEPLOY_SECURITY_GROUP_ID }}
+        run: |
+          set -euo pipefail
+          rule_ids="$(aws ec2 describe-security-group-rules \
+            --filters "Name=group-id,Values=$DEPLOY_SECURITY_GROUP_ID" \
+            --query "SecurityGroupRules[?Description == 'mcm-orbit-github-actions-$GITHUB_RUN_ID'].SecurityGroupRuleId" \
+            --output text)"
+          for rule_id in $rule_ids; do
+            aws ec2 revoke-security-group-ingress \
+              --group-id "$DEPLOY_SECURITY_GROUP_ID" \
+              --security-group-rule-ids "$rule_id"
+          done
