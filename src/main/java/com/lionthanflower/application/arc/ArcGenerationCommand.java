@@ -2,13 +2,18 @@
 package com.lionthanflower.application.arc;
 
 import com.lionthanflower.domain.arc.entity.ArcInputSnapshot;
+import com.lionthanflower.domain.common.entity.LanguageCode;
 import java.util.Objects;
 
 public record ArcGenerationCommand(
-    String customerName, String additionalRequest, ArcInputSnapshot inputSnapshot) {
+    String customerName,
+    LanguageCode serviceLanguage,
+    String additionalRequest,
+    ArcInputSnapshot inputSnapshot) {
 
   public ArcGenerationCommand {
     customerName = requireText(customerName, "고객 이름");
+    serviceLanguage = Objects.requireNonNull(serviceLanguage, "서비스 언어는 null일 수 없습니다.");
     inputSnapshot = Objects.requireNonNull(inputSnapshot, "Arc 입력은 null일 수 없습니다.");
     additionalRequest = normalizeOptional(additionalRequest);
   }

@@ -23,6 +23,9 @@ import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -114,8 +117,9 @@ class CustomerVisitControllerTest {
         .andExpect(jsonPath("$.data.status").value("WAITING_FOR_STAFF"));
   }
 
-  @Test
-  void 고객_온보딩은_한국어를_서비스_언어로_선택할_수_있다() throws Exception {
+  @ParameterizedTest
+  @ValueSource(strings = {"KO", "EN", "ZH", "JA", "RU", "DE", "FR"})
+  void 고객_온보딩은_지원_서비스_언어를_전달한다(String language) throws Exception {
     UUID visitId = UUID.randomUUID();
     when(service.progressOnboarding(any(), any(), any()))
         .thenReturn(new CustomerVisitService.OnboardingResult(visitId, VisitStatus.ACTIVE));
@@ -127,10 +131,19 @@ class CustomerVisitControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
-                    {"name":"홍길동","serviceLanguage":"KO","interactionStyle":"SELF_GUIDED"}
-                    """))
+                    {"name":"홍길동","serviceLanguage":"%s","interactionStyle":"SELF_GUIDED"}
+                    """
+                        .formatted(language)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+    var command = ArgumentCaptor.forClass(CustomerVisitService.OnboardingCommand.class);
+    verify(service)
+        .progressOnboarding(
+            org.mockito.ArgumentMatchers.eq(visitId),
+            org.mockito.ArgumentMatchers.eq("known-token"),
+            command.capture());
+    assertThat(command.getValue().serviceLanguage().name()).isEqualTo(language);
   }
 
   @Test

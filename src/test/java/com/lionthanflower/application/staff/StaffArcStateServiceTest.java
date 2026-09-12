@@ -50,6 +50,8 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -83,11 +85,12 @@ class StaffArcStateServiceTest {
     storeId = UUID.randomUUID();
   }
 
-  @Test
-  void Solo_방문은_Arc_생성_요청_직원을_담당자로_자동_배정한다() {
+  @ParameterizedTest
+  @EnumSource(LanguageCode.class)
+  void Solo_방문은_Arc_생성_요청_직원을_담당자로_자동_배정한다(LanguageCode language) {
     Staff staff = staff();
     UUID customerId = UUID.randomUUID();
-    Visit visit = visit(customerId, InteractionStyle.SELF_GUIDED);
+    Visit visit = visit(customerId, InteractionStyle.SELF_GUIDED, language);
     Customer customer = customer(customerId, "홍길동");
     Purchase purchase = Purchase.create(visit.getId());
     when(visitRepository.findByIdAndStoreId(visit.getId(), storeId)).thenReturn(Optional.of(visit));
@@ -105,6 +108,7 @@ class StaffArcStateServiceTest {
     assertThat(visit.getStaffId()).isEqualTo(staff.getId());
     assertThat(visit.getStatus()).isEqualTo(VisitStatus.ARC_IN_PROGRESS);
     assertThat(context.generationCommand().customerName()).isEqualTo("홍길동");
+    assertThat(context.generationCommand().serviceLanguage()).isEqualTo(language);
     verify(purchaseItemRepository).saveAll(anyCollection());
   }
 
@@ -174,10 +178,11 @@ class StaffArcStateServiceTest {
     assertThat(visit.getStatus()).isEqualTo(VisitStatus.COMPLETED);
   }
 
-  @Test
-  void SHARED_Arc도_기존_입력으로_재생성할_수_있고_성공한_리비전으로_공개본을_교체한다() {
+  @ParameterizedTest
+  @EnumSource(LanguageCode.class)
+  void SHARED_Arc도_기존_입력으로_재생성할_수_있고_성공한_리비전으로_공개본을_교체한다(LanguageCode language) {
     Staff staff = staff();
-    Visit visit = visit(UUID.randomUUID(), InteractionStyle.STAFF_RECOMMENDATION);
+    Visit visit = visit(UUID.randomUUID(), InteractionStyle.STAFF_RECOMMENDATION, language);
     visit.assignStaff(staff.getId(), Instant.now());
     visit.confirmPurchase(staff.getId(), Instant.now());
     Purchase purchase = Purchase.create(visit.getId());
@@ -212,6 +217,7 @@ class StaffArcStateServiceTest {
 
     assertThat(context.revisionId()).isEqualTo(next.getId());
     assertThat(context.generationCommand().inputSnapshot()).isEqualTo(modifiedSnapshot);
+    assertThat(context.generationCommand().serviceLanguage()).isEqualTo(language);
     assertThat(result.arcStatus()).isEqualTo(ArcStatus.SHARED);
     assertThat(arc.getSharedRevisionId()).isEqualTo(next.getId());
     assertThat(arc.getArcNumber()).isEqualTo(1);
@@ -260,8 +266,12 @@ class StaffArcStateServiceTest {
   }
 
   private Visit visit(UUID customerId, InteractionStyle interactionStyle) {
+    return visit(customerId, interactionStyle, LanguageCode.EN);
+  }
+
+  private Visit visit(UUID customerId, InteractionStyle interactionStyle, LanguageCode language) {
     Visit visit = Visit.create(customerId, storeId);
-    visit.completeOnboarding(LanguageCode.EN, interactionStyle, "컬러 요청");
+    visit.completeOnboarding(language, interactionStyle, "컬러 요청");
     return visit;
   }
 

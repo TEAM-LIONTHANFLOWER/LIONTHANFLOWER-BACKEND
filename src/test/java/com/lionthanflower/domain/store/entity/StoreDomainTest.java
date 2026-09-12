@@ -10,6 +10,9 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class StoreDomainTest {
 
@@ -21,9 +24,32 @@ class StoreDomainTest {
             store.getId(), "김회윤", "staff-token-hash", Set.of(LanguageCode.EN, LanguageCode.JA));
 
     assertThat(store.getCountryCode()).isEqualTo("KR");
+    assertThat(store).hasFieldOrPropertyWithValue("cityCode", null);
     assertThat(staff.getStoreId()).isEqualTo(store.getId());
     assertThat(staff.getTokenHash()).isEqualTo("staff-token-hash");
     assertThat(staff.getLanguages()).containsExactlyInAnyOrder(LanguageCode.EN, LanguageCode.JA);
+  }
+
+  @Test
+  void 도시_코드는_공백을_제거하고_대문자로_저장한다() {
+    assertThat(Store.create("MCM HAUS", "mcm-haus", "KR", "  paris  ").getCityCode())
+        .isEqualTo("PARIS");
+  }
+
+  @ParameterizedTest
+  @NullAndEmptySource
+  @ValueSource(strings = {"  ", "\t"})
+  void 미등록_도시는_null로_저장한다(String cityCode) {
+    assertThat(Store.create("MCM HAUS", "mcm-haus", "KR", cityCode).getCityCode()).isNull();
+  }
+
+  @Test
+  void 도시_코드는_정규화_후_100자까지_허용한다() {
+    assertThat(Store.create("MCM HAUS", "mcm-haus", "KR", "a".repeat(100)).getCityCode())
+        .isEqualTo("A".repeat(100));
+    assertThatThrownBy(() -> Store.create("MCM HAUS", "mcm-haus", "KR", "a".repeat(101)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("매장 도시 코드는 100자를 초과할 수 없습니다.");
   }
 
   @Test

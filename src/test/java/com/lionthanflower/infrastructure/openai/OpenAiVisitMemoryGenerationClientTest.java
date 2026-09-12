@@ -9,6 +9,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lionthanflower.application.visitmemory.VisitMemoryGenerationCommand;
+import com.lionthanflower.domain.common.entity.LanguageCode;
 import com.lionthanflower.domain.visitmemory.entity.CustomerInterestPoint;
 import com.lionthanflower.domain.visitmemory.entity.NoPurchaseReason;
 import com.lionthanflower.domain.visitmemory.entity.ProductEngagement;
@@ -18,7 +19,10 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.http.MediaType;
+import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -34,10 +38,19 @@ class OpenAiVisitMemoryGenerationClientTest {
     client = new OpenAiVisitMemoryGenerationClient(builder.build(), "test-api-key", "test-model");
   }
 
-  @Test
-  void Responses_API의_생성_결과를_Visit_Memory_콘텐츠로_변환한다() {
+  @ParameterizedTest
+  @EnumSource(LanguageCode.class)
+  void 지원_언어를_전달하고_Responses_API_결과를_변환한다(LanguageCode language) {
     server
         .expect(requestTo("/v1/responses"))
+        .andExpect(
+            request -> {
+              var mapper = new ObjectMapper();
+              var body = mapper.readTree(((MockClientHttpRequest) request).getBodyAsString());
+              var input = mapper.readTree(body.at("/input/1/content/0/text").asText());
+              assertThat(input.path("serviceLanguage").asText()).isEqualTo(language.name());
+              assertThat(body.at("/input/0/content/0/text").asText()).contains(language.name());
+            })
         .andExpect(content().string(org.hamcrest.Matchers.containsString("홍길동")))
         .andExpect(content().string(org.hamcrest.Matchers.containsString("VIEWED_WITH_INTEREST")))
         .andRespond(
@@ -48,7 +61,7 @@ class OpenAiVisitMemoryGenerationClientTest {
                     .toString(),
                 MediaType.APPLICATION_JSON));
 
-    var result = client.generate(command());
+    var result = client.generate(command(language));
 
     assertThat(result.summary()).isEqualTo("다음 방문을 준비한 기록");
     server.verify();
@@ -73,7 +86,11 @@ class OpenAiVisitMemoryGenerationClientTest {
   }
 
   private VisitMemoryGenerationCommand command() {
-    return new VisitMemoryGenerationCommand("홍길동", "다음 방문에 안내", snapshot());
+    return command(LanguageCode.KO);
+  }
+
+  private VisitMemoryGenerationCommand command(LanguageCode language) {
+    return new VisitMemoryGenerationCommand("홍길동", language, "다음 방문에 안내", snapshot());
   }
 
   private VisitMemoryInputSnapshot snapshot() {

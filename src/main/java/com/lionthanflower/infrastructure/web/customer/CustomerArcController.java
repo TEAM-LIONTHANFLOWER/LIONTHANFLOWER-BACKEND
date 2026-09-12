@@ -7,6 +7,7 @@ import com.lionthanflower.domain.product.entity.ProductColor;
 import com.lionthanflower.domain.product.entity.ProductOption;
 import com.lionthanflower.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -30,7 +31,7 @@ public class CustomerArcController {
 
   @Operation(
       summary = "고객 Arc 목록 조회",
-      description = "고객에게 공유되거나 최종 저장된 Arc의 매장 이름과 편지 본문을 최신순으로 조회합니다.")
+      description = "고객에게 공유되거나 최종 저장된 Arc의 매장 이름, 도시 코드와 편지 본문을 최신순으로 조회합니다.")
   @GetMapping
   public ApiResponse<List<ArcListItemResponse>> getArcs(
       @CookieValue(name = CUSTOMER_TOKEN_COOKIE, required = false) String rawToken) {
@@ -38,7 +39,7 @@ public class CustomerArcController {
         service.getArcs(rawToken).stream().map(ArcListItemResponse::from).toList());
   }
 
-  @Operation(summary = "고객 Arc 상세 조회", description = "고객 본인의 공개 Arc와 전체 구매 제품을 조회합니다.")
+  @Operation(summary = "고객 Arc 상세 조회", description = "고객 본인의 공개 Arc의 매장 도시 코드와 전체 구매 제품을 조회합니다.")
   @GetMapping("/{arcId}")
   public ApiResponse<ArcDetailResponse> getArc(
       @PathVariable UUID arcId,
@@ -59,6 +60,12 @@ public class CustomerArcController {
       UUID arcId,
       int arcNumber,
       String storeName,
+      @Schema(
+              description = "Arc 방문에 연결된 매장의 도시 식별자. 미등록 시 null이며 기본 편지지를 사용합니다.",
+              example = "SEOUL",
+              nullable = true,
+              maxLength = 100)
+          String cityCode,
       String momentSummary,
       String momentToRemember,
       ProductResponse representativeProduct,
@@ -71,6 +78,7 @@ public class CustomerArcController {
           arc.arcId(),
           arc.arcNumber(),
           arc.storeName(),
+          arc.cityCode(),
           arc.momentSummary(),
           arc.momentToRemember(),
           ProductResponse.from(arc.representativeProduct()),
@@ -85,6 +93,12 @@ public class CustomerArcController {
       int arcNumber,
       String customerName,
       String storeName,
+      @Schema(
+              description = "Arc 방문에 연결된 매장의 도시 식별자. 미등록 시 null이며 기본 편지지를 사용합니다.",
+              example = "SEOUL",
+              nullable = true,
+              maxLength = 100)
+          String cityCode,
       String countryCode,
       ArcStatus status,
       Instant sharedAt,
@@ -100,6 +114,7 @@ public class CustomerArcController {
           arc.arcNumber(),
           arc.customerName(),
           arc.storeName(),
+          arc.cityCode(),
           arc.countryCode(),
           arc.status(),
           arc.sharedAt(),
