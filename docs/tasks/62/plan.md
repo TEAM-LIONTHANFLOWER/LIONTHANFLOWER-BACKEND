@@ -31,7 +31,7 @@
 - Consumes: V8의 `stores.city_code VARCHAR(100)`와 기존 `stores.code` 고유 제약.
 - Produces: 코드 `MCM-PARIS`, `MCM-MUNICH`로 조회 가능한 고정 Store 행.
 
-- [ ] **Step 1: V9가 두 매장을 추가하는 실패 테스트 작성**
+- [x] **Step 1: V9가 두 매장을 추가하는 실패 테스트 작성**
 
 `StoreCityMigrationTest`에 PostgreSQL과 MySQL을 모두 실행하는 테스트를 추가한다. V8까지만 적용한 DB에 V9를 적용하고 다음 값을 JDBC로 조회한다.
 
@@ -58,7 +58,7 @@ void 파리와_뮌헨_매장을_고정_도시_코드로_추가한다(String data
 
 같은 파일에 `createDatabase(String)`와 `assertStore(...)` private helper를 두어 기존 중복 컨테이너·JDBC 코드를 줄인다. 기존 V8 테스트도 `createDatabase`를 사용하도록 필요한 줄만 변경한다.
 
-- [ ] **Step 2: V9 부재로 테스트가 실패하는지 확인**
+- [x] **Step 2: V9 부재로 테스트가 실패하는지 확인**
 
 Run:
 
@@ -68,7 +68,7 @@ Run:
 
 Expected: V9 적용 건수가 0이거나 `MCM-PARIS` 조회 결과가 없어 실패한다.
 
-- [ ] **Step 3: 동일 코드 보존 테스트 작성**
+- [x] **Step 3: 동일 코드 보존 테스트 작성**
 
 V8 상태에서 `MCM-PARIS` 코드를 가진 기존 행을 다른 UUID와 `city_code = LEGACY_PARIS`로 삽입한 뒤 V9를 적용하는 테스트를 추가한다. 적용 후 해당 행이 한 건이고 UUID와 `LEGACY_PARIS`가 유지되며 뮌헨 행은 정상 생성되어야 한다.
 
@@ -78,7 +78,7 @@ assertStore(database, "MCM-PARIS", "Legacy Paris", "FR", "LEGACY_PARIS");
 assertStore(database, "MCM-MUNICH", "MCM Munich", "DE", "MUNICH");
 ```
 
-- [ ] **Step 4: 최소 V9 마이그레이션 구현**
+- [x] **Step 4: 최소 V9 마이그레이션 구현**
 
 `V9__seed_paris_and_munich_stores.sql`을 다음 형태로 작성한다.
 
@@ -107,7 +107,7 @@ SELECT
 WHERE NOT EXISTS (SELECT 1 FROM stores WHERE code = 'MCM-MUNICH');
 ```
 
-- [ ] **Step 5: 마이그레이션 테스트 통과 확인**
+- [x] **Step 5: 마이그레이션 테스트 통과 확인**
 
 Run:
 
@@ -117,7 +117,7 @@ Run:
 
 Expected: PostgreSQL·MySQL의 신규 생성, 동일 코드 보존, V8 회귀 테스트가 모두 PASS.
 
-- [ ] **Step 6: 첫 논리 변경 커밋**
+- [x] **Step 6: 첫 논리 변경 커밋**
 
 ```bash
 git add src/main/resources/db/migration/V9__seed_paris_and_munich_stores.sql src/test/java/com/lionthanflower/infrastructure/persistence/StoreCityMigrationTest.java
@@ -138,7 +138,7 @@ git commit -m "62 feat: 파리와 뮌헨 매장 데이터 추가"
 - Consumes: `StoreRepository.findByCode(String)`와 Task 1의 `MCM-SEOUL`, `MCM-PARIS`, `MCM-MUNICH` 매장 코드.
 - Produces: `CustomerVisitService.enter(String rawToken, String requestedStoreCode)`와 `POST /api/customers/visits?storeCode=...`.
 
-- [ ] **Step 1: Service 매장 선택 실패 테스트 작성**
+- [x] **Step 1: Service 매장 선택 실패 테스트 작성**
 
 기존 `service.enter(rawToken)` 호출은 모두 `service.enter(rawToken, null)`로 바꾼다. 이어서 다음 세 테스트를 추가한다.
 
@@ -180,7 +180,7 @@ void 존재하지_않는_명시적_매장_코드는_찾을_수_없다() {
 
 기존 `설정된_매장이_없으면_서버_오류를_반환한다` 테스트는 `service.enter(null, null)`로 호출하여 `COMMON-500` 계약을 유지한다.
 
-- [ ] **Step 2: Controller 전달 실패 테스트 작성**
+- [x] **Step 2: Controller 전달 실패 테스트 작성**
 
 기존 mock을 `service.enter(rawToken, null)` 시그니처로 바꾼다. 다음 테스트에서 HTTP 쿼리 파라미터가 그대로 Service에 전달되는지 확인한다.
 
@@ -202,7 +202,7 @@ void 고객은_매장_코드를_선택해_서비스에_진입한다() throws Exc
 }
 ```
 
-- [ ] **Step 3: 새 시그니처 부재로 테스트가 실패하는지 확인**
+- [x] **Step 3: 새 시그니처 부재로 테스트가 실패하는지 확인**
 
 Run:
 
@@ -212,7 +212,7 @@ Run:
 
 Expected: `enter(String, String)` 메서드가 없어 테스트 컴파일이 실패한다.
 
-- [ ] **Step 4: Service에 최소 매장 해석 로직 구현**
+- [x] **Step 4: Service에 최소 매장 해석 로직 구현**
 
 공개 메서드를 다음 시그니처로 바꾸고 Store 조회를 helper로 분리한다.
 
@@ -242,7 +242,7 @@ private Store resolveEntryStore(String requestedStoreCode) {
 
 명시적 코드의 대소문자 변환이나 trim은 하지 않는다. API 계약인 고유 매장 코드와 정확히 일치시킨다.
 
-- [ ] **Step 5: Controller와 Springdoc 계약 구현**
+- [x] **Step 5: Controller와 Springdoc 계약 구현**
 
 `enter`에 선택적 쿼리 파라미터를 추가하고 Service에 전달한다.
 
@@ -259,7 +259,7 @@ public ResponseEntity<ApiResponse<EntryResponse>> enter(
 
 필요한 `io.swagger.v3.oas.annotations.Parameter`와 `org.springframework.web.bind.annotation.RequestParam` import만 추가한다.
 
-- [ ] **Step 6: 관련 단위·HTTP 테스트 통과 확인**
+- [x] **Step 6: 관련 단위·HTTP 테스트 통과 확인**
 
 Run:
 
@@ -269,7 +269,7 @@ Run:
 
 Expected: 기본 서울 선택, 파리·뮌헨 선택, 빈 코드 400, 미등록 코드 404, 기존 쿠키·온보딩 테스트가 모두 PASS.
 
-- [ ] **Step 7: API 변경 커밋**
+- [x] **Step 7: API 변경 커밋**
 
 ```bash
 git add src/main/java/com/lionthanflower/application/customer/CustomerVisitService.java src/main/java/com/lionthanflower/infrastructure/web/customer/CustomerVisitController.java src/test/java/com/lionthanflower/application/customer/CustomerVisitServiceTest.java src/test/java/com/lionthanflower/infrastructure/web/customer/CustomerVisitControllerTest.java
@@ -288,7 +288,7 @@ git commit -m "62 feat: 고객 방문 매장 선택 지원"
 - Consumes: Task 1의 V9 매장 데이터와 Task 2의 `POST /api/customers/visits?storeCode=...`.
 - Produces: 실제 HTTP → Service → JPA → PostgreSQL 흐름에서 선택한 Store ID가 Visit에 저장된다는 검증 증거.
 
-- [ ] **Step 1: PostgreSQL 통합 테스트 작성**
+- [x] **Step 1: PostgreSQL 통합 테스트 작성**
 
 새 파일은 `PostgreSqlContainerSupport`를 상속하고 `@SpringBootTest`, `@AutoConfigureMockMvc`, `@Transactional`을 사용한다. 첫 줄에는 다음 역할 주석을 둔다.
 
@@ -324,7 +324,7 @@ void 고객_방문은_선택한_뮌헨_매장에_연결된다() throws Exception
 
 같은 클래스에서 `GET /api/stores?query=MCM-`가 `MCM-SEOUL`, `MCM-PARIS`, `MCM-MUNICH`를 반환하는지 확인한다.
 
-- [ ] **Step 2: 생성 OpenAPI의 매장 선택 계약 검증 작성**
+- [x] **Step 2: 생성 OpenAPI의 매장 선택 계약 검증 작성**
 
 `GET /v3/api-docs` 결과를 `ObjectMapper`로 읽고 `/api/customers/visits` POST 파라미터에서 이름이 `storeCode`인 항목을 찾는다. 다음을 검증한다.
 
@@ -335,7 +335,7 @@ assertThat(storeCodeParameter.path("description").asText()).contains("기본 매
 assertThat(storeCodeParameter.path("example").asText()).isEqualTo("MCM-PARIS");
 ```
 
-- [ ] **Step 3: 통합 테스트 통과 확인**
+- [x] **Step 3: 통합 테스트 통과 확인**
 
 Run:
 
@@ -345,7 +345,7 @@ Run:
 
 Expected: 선택한 뮌헨 Store ID의 Visit 저장, 세 매장 검색, OpenAPI 계약, 기존 Arc 도시 응답이 모두 PASS.
 
-- [ ] **Step 4: 통합 검증 커밋**
+- [x] **Step 4: 통합 검증 커밋**
 
 ```bash
 git add src/test/java/com/lionthanflower/infrastructure/web/customer/CustomerVisitStoreIntegrationTest.java docs/tasks/62/plan.md
@@ -363,7 +363,7 @@ git commit -m "62 test: 방문 매장 선택 통합 검증 추가"
 - Consumes: Tasks 1~3의 마이그레이션, API, 테스트 커밋.
 - Produces: 전체 회귀·포맷·공백 검사 결과와 최종 diff 검토 기록.
 
-- [ ] **Step 1: 전체 테스트 실행**
+- [x] **Step 1: 전체 테스트 실행**
 
 Run:
 
@@ -373,7 +373,7 @@ Run:
 
 Expected: 모든 테스트 PASS, 실패·오류·스킵 0개.
 
-- [ ] **Step 2: 포맷과 공백 검사 실행**
+- [x] **Step 2: 포맷과 공백 검사 실행**
 
 Run:
 
@@ -384,17 +384,32 @@ git diff --check main...HEAD
 
 Expected: 두 검사 모두 종료 코드 0.
 
-- [ ] **Step 3: 코드 리뷰 그래프와 diff 검토**
+- [x] **Step 3: 코드 리뷰 그래프와 diff 검토**
 
 저장소의 `build-graph`를 실행해 코드 리뷰 그래프를 최신화하고 결과를 확인한다. 이후 `git diff --stat main...HEAD`, `git diff main...HEAD`로 이슈 #62 외 변경이 없는지, 공개 API·DDL·오류 계약과 테스트가 일치하는지 검토한다.
 
-- [ ] **Step 4: 계획 문서에 실제 검증 결과 기록**
+- [x] **Step 4: 계획 문서에 실제 검증 결과 기록**
 
 완료된 체크박스를 `[x]`로 바꾸고 `검증 결과` 절에 실제 실행 명령, 테스트 수, 결과, 발견 사항과 남은 위험을 기록한다. 결과를 추정해서 쓰지 않는다.
 
-- [ ] **Step 5: 검증 기록 커밋**
+- [x] **Step 5: 검증 기록 커밋**
 
 ```bash
 git add docs/tasks/62/plan.md
 git commit -m "62 docs: 구현 및 검증 결과 기록"
 ```
+
+## 검증 결과.
+
+- 마이그레이션 RED. V9를 추가하기 전에 `./gradlew test --tests '*StoreCityMigrationTest' --stacktrace --no-daemon`을 실행하여 PostgreSQL·MySQL의 신규 매장 검증 4건이 실패하는 것을 확인했다.
+- 마이그레이션 GREEN. V9 추가 후 같은 명령이 성공했다. 파리·뮌헨의 고정 UUID와 도시 코드, 동일 코드 기존 행의 UUID·값 보존, Flyway 재실행 시 적용 건수 0을 PostgreSQL 17과 MySQL 8.4에서 확인했다.
+- API RED. `enter(String, String)` 테스트를 먼저 작성한 뒤 관련 테스트 컴파일에서 기존 시그니처로 인한 오류 11건을 확인했다.
+- API GREEN. `./gradlew test --tests '*CustomerVisitServiceTest' --tests '*CustomerVisitControllerTest' --stacktrace --no-daemon`이 성공했다. 기본 서울 매장, 명시적 매장, 빈 코드 400, 미등록 코드 404, 기본 매장 누락 500 계약을 확인했다.
+- 통합 검증. `./gradlew test --tests '*CustomerVisitStoreIntegrationTest' --tests '*CustomerArcCityIntegrationTest' --stacktrace --no-daemon`이 성공했다. 실제 HTTP·JPA 흐름의 뮌헨 방문 연결, 세 매장 검색, Springdoc 계약과 Arc 목록·상세의 `SEOUL`, `PARIS`, `MUNICH` 반환을 확인했다.
+- 계획에서 단일 `MCM-` 검색으로 세 매장을 한 번에 검증하려 했으나, 공유 테스트 DB의 다른 `MCM-*` 데이터에 영향을 받지 않도록 각 고유 코드로 검색하는 파라미터화 테스트로 변경했다.
+- 전체 회귀. `./gradlew test --stacktrace --no-daemon` 결과 287개 테스트가 성공했고 실패·오류·스킵은 모두 0개였다.
+- 포맷. `./gradlew spotlessCheck --no-daemon`이 성공했다.
+- 공백. `git diff --check origin/main...HEAD`가 종료 코드 0으로 성공했다.
+- 리뷰 그래프. 저장소와 실행 경로에서 `build-graph`를 찾지 못해 실행할 수 없었다. 대신 최신 `origin/main`과의 전체 diff, 이슈 #62, 설계 문서와 공개 API·DDL·오류·테스트 계약을 직접 대조했고 범위 이탈이나 미해결 finding은 발견하지 못했다.
+- 리뷰 제약. 현재 작업의 위임 요청이 없어 별도 리뷰 에이전트는 사용하지 않고 주 에이전트가 체크리스트 기반 리뷰를 수행했다.
+- 남은 운영 조건. 배포 환경에서 Flyway V9가 적용되어야 하며 프론트엔드는 정확한 대문자 코드 `MCM-PARIS` 또는 `MCM-MUNICH`를 전달해야 한다.
