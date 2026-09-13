@@ -7,6 +7,7 @@ import com.lionthanflower.domain.visit.entity.InteractionStyle;
 import com.lionthanflower.domain.visit.entity.VisitStatus;
 import com.lionthanflower.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -51,11 +53,16 @@ public class CustomerVisitController {
     this.cookieSameSite = cookieSameSite;
   }
 
-  @Operation(summary = "고객 서비스 진입", description = "익명 고객을 식별하거나 생성하고 새로운 ONBOARDING 방문을 생성합니다.")
+  @Operation(
+      summary = "고객 서비스 진입",
+      description = "익명 고객을 식별하거나 생성하고 선택한 매장의 새로운 ONBOARDING 방문을 생성합니다.")
   @PostMapping
   public ResponseEntity<ApiResponse<EntryResponse>> enter(
-      @CookieValue(name = CUSTOMER_TOKEN_COOKIE, required = false) String rawToken) {
-    CustomerVisitService.EntryResult result = service.enter(rawToken);
+      @CookieValue(name = CUSTOMER_TOKEN_COOKIE, required = false) String rawToken,
+      @Parameter(description = "방문할 매장 코드. 생략하면 기본 매장 MCM-SEOUL을 사용합니다.", example = "MCM-PARIS")
+          @RequestParam(required = false)
+          String storeCode) {
+    CustomerVisitService.EntryResult result = service.enter(rawToken, storeCode);
     ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.CREATED);
     if (result.issuedToken() != null) {
       response.header(HttpHeaders.SET_COOKIE, customerCookie(result.issuedToken()).toString());

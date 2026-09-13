@@ -46,15 +46,26 @@ public class CustomerVisitService {
     this.storeCode = storeCode;
   }
 
-  public EntryResult enter(String rawToken) {
-    Store store =
-        storeRepository
-            .findByCode(storeCode)
-            .orElseThrow(() -> new BusinessException(CommonErrorCode.INTERNAL_SERVER_ERROR));
+  public EntryResult enter(String rawToken, String requestedStoreCode) {
+    Store store = resolveEntryStore(requestedStoreCode);
     CustomerSession session = resolveCustomer(rawToken);
     Visit visit = visitRepository.save(Visit.create(session.customer().getId(), store.getId()));
     return new EntryResult(
         visit.getId(), session.customer().getName(), visit.getStatus(), session.issuedToken());
+  }
+
+  private Store resolveEntryStore(String requestedStoreCode) {
+    if (requestedStoreCode == null) {
+      return storeRepository
+          .findByCode(storeCode)
+          .orElseThrow(() -> new BusinessException(CommonErrorCode.INTERNAL_SERVER_ERROR));
+    }
+    if (requestedStoreCode.isBlank()) {
+      throw new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE);
+    }
+    return storeRepository
+        .findByCode(requestedStoreCode)
+        .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
   }
 
   public OnboardingResult progressOnboarding(

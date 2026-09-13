@@ -29,6 +29,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -70,7 +71,7 @@ class CustomerVisitServiceTest {
     when(visitRepository.save(any(Visit.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    CustomerVisitService.EntryResult result = service.enter("known-token");
+    CustomerVisitService.EntryResult result = service.enter("known-token", null);
 
     assertThat(result.customerName()).isEqualTo("홍길동");
     assertThat(result.status()).isEqualTo(VisitStatus.ONBOARDING);
@@ -87,7 +88,7 @@ class CustomerVisitServiceTest {
     when(visitRepository.save(any(Visit.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    CustomerVisitService.EntryResult result = service.enter(null);
+    CustomerVisitService.EntryResult result = service.enter(null, null);
 
     assertThat(result.issuedToken()).isNotBlank();
     assertThat(result.status()).isEqualTo(VisitStatus.ONBOARDING);
@@ -104,7 +105,7 @@ class CustomerVisitServiceTest {
     when(visitRepository.save(any(Visit.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    CustomerVisitService.EntryResult result = service.enter("unknown-token");
+    CustomerVisitService.EntryResult result = service.enter("unknown-token", null);
 
     assertThat(result.issuedToken()).isNotBlank().isNotEqualTo("unknown-token");
     verify(customerRepository).save(any(Customer.class));
@@ -115,10 +116,44 @@ class CustomerVisitServiceTest {
   void 설정된_매장이_없으면_서버_오류를_반환한다() {
     when(storeRepository.findByCode(STORE_CODE)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.enter(null))
+    assertThatThrownBy(() -> service.enter(null, null))
         .isInstanceOf(BusinessException.class)
         .extracting(exception -> ((BusinessException) exception).errorCode())
         .isEqualTo(CommonErrorCode.INTERNAL_SERVER_ERROR);
+  }
+
+  @Test
+  void 명시한_매장으로_방문을_생성한다() {
+    Store paris = Store.create("MCM Paris", "MCM-PARIS", "FR", "PARIS");
+    when(storeRepository.findByCode("MCM-PARIS")).thenReturn(Optional.of(paris));
+    when(customerRepository.save(any(Customer.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(visitRepository.save(any(Visit.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.enter(null, "MCM-PARIS");
+
+    var visit = ArgumentCaptor.forClass(Visit.class);
+    verify(visitRepository).save(visit.capture());
+    assertThat(visit.getValue().getStoreId()).isEqualTo(paris.getId());
+  }
+
+  @Test
+  void 비어_있는_명시적_매장_코드는_잘못된_요청이다() {
+    assertThatThrownBy(() -> service.enter(null, " "))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).errorCode())
+        .isEqualTo(CommonErrorCode.INVALID_INPUT_VALUE);
+  }
+
+  @Test
+  void 존재하지_않는_명시적_매장_코드는_찾을_수_없다() {
+    when(storeRepository.findByCode("MCM-UNKNOWN")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> service.enter(null, "MCM-UNKNOWN"))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).errorCode())
+        .isEqualTo(CommonErrorCode.NOT_FOUND);
   }
 
   @Test
