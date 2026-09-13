@@ -17,10 +17,7 @@ class StoreCityMigrationTest {
   @ParameterizedTest
   @ValueSource(strings = {"postgres", "mysql"})
   void 기존_매장을_보존하고_확인된_서울_매장만_도시를_보완한다(String databaseType) throws Exception {
-    try (JdbcDatabaseContainer<?> database =
-        databaseType.equals("postgres")
-            ? new PostgreSQLContainer<>("postgres:17-alpine")
-            : new MySQLContainer<>("mysql:8.4")) {
+    try (JdbcDatabaseContainer<?> database = createDatabase(databaseType)) {
       database.start();
       var configuration =
           Flyway.configure()
@@ -62,6 +59,97 @@ class StoreCityMigrationTest {
           assertThat(rows.getString("country_code")).isEqualTo("KR");
           assertThat(rows.getString("city_code")).isNull();
         }
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"postgres", "mysql"})
+  void 파리와_뮌헨_매장을_고정_도시_코드로_추가한다(String databaseType) throws Exception {
+    try (JdbcDatabaseContainer<?> database = createDatabase(databaseType)) {
+      database.start();
+      var configuration =
+          Flyway.configure()
+              .dataSource(database.getJdbcUrl(), database.getUsername(), database.getPassword())
+              .locations("classpath:db/migration");
+      configuration.target("8").load().migrate();
+
+      var flyway = configuration.target("9").load();
+      assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
+      assertStore(database, "MCM-PARIS", "MCM Paris", "FR", "PARIS");
+      assertStore(database, "MCM-MUNICH", "MCM Munich", "DE", "MUNICH");
+      assertThat(flyway.migrate().migrationsExecuted).isZero();
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"postgres", "mysql"})
+  void 동일한_코드의_기존_매장은_보존한다(String databaseType) throws Exception {
+    try (JdbcDatabaseContainer<?> database = createDatabase(databaseType)) {
+      database.start();
+      var configuration =
+          Flyway.configure()
+              .dataSource(database.getJdbcUrl(), database.getUsername(), database.getPassword())
+              .locations("classpath:db/migration");
+      configuration.target("8").load().migrate();
+      String legacyId = UUID.randomUUID().toString();
+      try (var connection =
+              DriverManager.getConnection(
+                  database.getJdbcUrl(), database.getUsername(), database.getPassword());
+          var insert =
+              connection.prepareStatement(
+                  "INSERT INTO stores (id, name, code, country_code, city_code, created_at, updated_at) "
+                      + "VALUES (?, 'Legacy Paris', 'MCM-PARIS', 'FR', 'LEGACY_PARIS', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")) {
+        insert.setString(1, legacyId);
+        insert.executeUpdate();
+      }
+
+      configuration.target("9").load().migrate();
+
+      assertThat(countStoresByCode(database, "MCM-PARIS")).isEqualTo(1);
+      assertStore(database, "MCM-PARIS", "Legacy Paris", "FR", "LEGACY_PARIS");
+      assertStore(database, "MCM-MUNICH", "MCM Munich", "DE", "MUNICH");
+    }
+  }
+
+  private JdbcDatabaseContainer<?> createDatabase(String databaseType) {
+    return databaseType.equals("postgres")
+        ? new PostgreSQLContainer<>("postgres:17-alpine")
+        : new MySQLContainer<>("mysql:8.4");
+  }
+
+  private void assertStore(
+      JdbcDatabaseContainer<?> database,
+      String code,
+      String name,
+      String countryCode,
+      String cityCode)
+      throws Exception {
+    try (var connection =
+            DriverManager.getConnection(
+                database.getJdbcUrl(), database.getUsername(), database.getPassword());
+        var statement =
+            connection.prepareStatement(
+                "SELECT name, country_code, city_code FROM stores WHERE code = ?")) {
+      statement.setString(1, code);
+      try (var rows = statement.executeQuery()) {
+        assertThat(rows.next()).isTrue();
+        assertThat(rows.getString("name")).isEqualTo(name);
+        assertThat(rows.getString("country_code")).isEqualTo(countryCode);
+        assertThat(rows.getString("city_code")).isEqualTo(cityCode);
+      }
+    }
+  }
+
+  private int countStoresByCode(JdbcDatabaseContainer<?> database, String code) throws Exception {
+    try (var connection =
+            DriverManager.getConnection(
+                database.getJdbcUrl(), database.getUsername(), database.getPassword());
+        var statement = connection.prepareStatement("SELECT COUNT(*) FROM stores WHERE code = ?")) {
+      statement.setString(1, code);
+      try (var rows = statement.executeQuery()) {
+        rows.next();
+        return rows.getInt(1);
       }
     }
   }
