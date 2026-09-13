@@ -62,7 +62,8 @@ class CustomerArcCityIntegrationTest extends PostgreSqlContainerSupport {
 
     UUID seoulArc = persistArc(customer, variant, "MCM Seoul", "KR", " seoul ", 1);
     UUID parisArc = persistArc(customer, variant, "MCM Paris", "FR", "PARIS", 2);
-    UUID unknownArc = persistArc(customer, variant, "MCM Seoul", "KR", null, 3);
+    UUID munichArc = persistArc(customer, variant, "MCM Munich", "DE", "MUNICH", 3);
+    UUID unknownArc = persistArc(customer, variant, "MCM Seoul", "KR", null, 4);
     entityManager.flush();
     entityManager.clear();
 
@@ -70,16 +71,19 @@ class CustomerArcCityIntegrationTest extends PostgreSqlContainerSupport {
     mockMvc
         .perform(get("/api/customers/arcs").cookie(cookie))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.length()").value(3))
+        .andExpect(jsonPath("$.data.length()").value(4))
         .andExpect(jsonPath("$.data[0].arcId").value(unknownArc.toString()))
         .andExpect(jsonPath("$.data[0].cityCode").hasJsonPath())
         .andExpect(jsonPath("$.data[0].cityCode").value(org.hamcrest.Matchers.nullValue()))
-        .andExpect(jsonPath("$.data[1].arcId").value(parisArc.toString()))
-        .andExpect(jsonPath("$.data[1].cityCode").value("PARIS"))
-        .andExpect(jsonPath("$.data[2].arcId").value(seoulArc.toString()))
-        .andExpect(jsonPath("$.data[2].cityCode").value("SEOUL"));
+        .andExpect(jsonPath("$.data[1].arcId").value(munichArc.toString()))
+        .andExpect(jsonPath("$.data[1].cityCode").value("MUNICH"))
+        .andExpect(jsonPath("$.data[2].arcId").value(parisArc.toString()))
+        .andExpect(jsonPath("$.data[2].cityCode").value("PARIS"))
+        .andExpect(jsonPath("$.data[3].arcId").value(seoulArc.toString()))
+        .andExpect(jsonPath("$.data[3].cityCode").value("SEOUL"));
     assertDetail(cookie, seoulArc, "MCM Seoul", "SEOUL", "KR");
     assertDetail(cookie, parisArc, "MCM Paris", "PARIS", "FR");
+    assertDetail(cookie, munichArc, "MCM Munich", "MUNICH", "DE");
     assertDetail(cookie, unknownArc, "MCM Seoul", null, "KR");
   }
 

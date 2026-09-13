@@ -76,8 +76,20 @@ class StoreCityMigrationTest {
 
       var flyway = configuration.target("9").load();
       assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
-      assertStore(database, "MCM-PARIS", "MCM Paris", "FR", "PARIS");
-      assertStore(database, "MCM-MUNICH", "MCM Munich", "DE", "MUNICH");
+      assertStore(
+          database,
+          "MCM-PARIS",
+          "00000000-0000-0000-0000-000000000002",
+          "MCM Paris",
+          "FR",
+          "PARIS");
+      assertStore(
+          database,
+          "MCM-MUNICH",
+          "00000000-0000-0000-0000-000000000003",
+          "MCM Munich",
+          "DE",
+          "MUNICH");
       assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
   }
@@ -107,8 +119,14 @@ class StoreCityMigrationTest {
       configuration.target("9").load().migrate();
 
       assertThat(countStoresByCode(database, "MCM-PARIS")).isEqualTo(1);
-      assertStore(database, "MCM-PARIS", "Legacy Paris", "FR", "LEGACY_PARIS");
-      assertStore(database, "MCM-MUNICH", "MCM Munich", "DE", "MUNICH");
+      assertStore(database, "MCM-PARIS", legacyId, "Legacy Paris", "FR", "LEGACY_PARIS");
+      assertStore(
+          database,
+          "MCM-MUNICH",
+          "00000000-0000-0000-0000-000000000003",
+          "MCM Munich",
+          "DE",
+          "MUNICH");
     }
   }
 
@@ -121,6 +139,7 @@ class StoreCityMigrationTest {
   private void assertStore(
       JdbcDatabaseContainer<?> database,
       String code,
+      String id,
       String name,
       String countryCode,
       String cityCode)
@@ -130,10 +149,11 @@ class StoreCityMigrationTest {
                 database.getJdbcUrl(), database.getUsername(), database.getPassword());
         var statement =
             connection.prepareStatement(
-                "SELECT name, country_code, city_code FROM stores WHERE code = ?")) {
+                "SELECT id, name, country_code, city_code FROM stores WHERE code = ?")) {
       statement.setString(1, code);
       try (var rows = statement.executeQuery()) {
         assertThat(rows.next()).isTrue();
+        assertThat(rows.getString("id")).isEqualTo(id);
         assertThat(rows.getString("name")).isEqualTo(name);
         assertThat(rows.getString("country_code")).isEqualTo(countryCode);
         assertThat(rows.getString("city_code")).isEqualTo(cityCode);
