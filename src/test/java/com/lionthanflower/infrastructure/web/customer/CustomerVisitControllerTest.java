@@ -54,7 +54,7 @@ class CustomerVisitControllerTest {
   @Test
   void 신규_고객의_서비스_진입은_방문과_쿠키를_반환한다() throws Exception {
     UUID visitId = UUID.randomUUID();
-    when(service.enter(null))
+    when(service.enter(null, null))
         .thenReturn(
             new CustomerVisitService.EntryResult(
                 visitId, null, VisitStatus.ONBOARDING, "issued-token"));
@@ -82,7 +82,7 @@ class CustomerVisitControllerTest {
   @Test
   void 기존_고객의_서비스_진입은_새_쿠키를_발급하지_않는다() throws Exception {
     UUID visitId = UUID.randomUUID();
-    when(service.enter("known-token"))
+    when(service.enter("known-token", null))
         .thenReturn(
             new CustomerVisitService.EntryResult(visitId, "홍길동", VisitStatus.ONBOARDING, null));
 
@@ -93,6 +93,22 @@ class CustomerVisitControllerTest {
         .andExpect(status().isCreated())
         .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
         .andExpect(jsonPath("$.data.customerName").value("홍길동"));
+  }
+
+  @Test
+  void 고객은_매장_코드를_선택해_서비스에_진입한다() throws Exception {
+    UUID visitId = UUID.randomUUID();
+    when(service.enter(null, "MCM-MUNICH"))
+        .thenReturn(
+            new CustomerVisitService.EntryResult(
+                visitId, null, VisitStatus.ONBOARDING, "issued-token"));
+
+    mockMvc
+        .perform(post("/api/customers/visits").param("storeCode", "MCM-MUNICH"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.data.visitId").value(visitId.toString()));
+
+    verify(service).enter(null, "MCM-MUNICH");
   }
 
   @Test
