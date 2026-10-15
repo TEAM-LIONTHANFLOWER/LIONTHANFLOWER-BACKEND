@@ -65,6 +65,22 @@ public class Arc extends BaseEntity {
   @Column(name = "finalized_at")
   private Instant finalizedAt;
 
+  @JdbcTypeCode(SqlTypes.CHAR)
+  @Column(name = "email_identity_id", length = 36)
+  private UUID emailIdentityId;
+
+  @JdbcTypeCode(SqlTypes.TIMESTAMP)
+  @Column(name = "archived_at")
+  private Instant archivedAt;
+
+  public UUID getEmailIdentityId() {
+    return emailIdentityId;
+  }
+
+  public Instant getArchivedAt() {
+    return archivedAt;
+  }
+
   protected Arc() {}
 
   private Arc(UUID id, UUID visitId, UUID purchaseId, UUID customerId, UUID createdByStaffId) {

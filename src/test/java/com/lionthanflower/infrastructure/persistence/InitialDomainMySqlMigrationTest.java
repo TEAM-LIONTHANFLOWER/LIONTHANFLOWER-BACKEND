@@ -41,6 +41,26 @@ class InitialDomainMySqlMigrationTest extends MySqlContainerSupport {
   }
 
   @Test
+  void 이메일_계정과_인증요청_및_보관_제약이_생성된다() throws SQLException {
+    assertThat(countTables("customer_email_identities", "email_verification_requests"))
+        .isEqualTo(2);
+    assertThat(countConstraints("customer_email_identities", "uk_customer_email_identities_email"))
+        .isEqualTo(1);
+    assertThat(countConstraints("customers", "fk_customers_email_identity")).isEqualTo(1);
+    assertThat(countConstraints("customers", "ck_customers_email_auth")).isEqualTo(1);
+    assertThat(
+            countConstraints(
+                "email_verification_requests", "fk_email_verification_requests_customer"))
+        .isEqualTo(1);
+    for (String table : java.util.List.of("arcs", "visit_memories")) {
+      assertThat(countColumns(table, "email_identity_id")).isEqualTo(1);
+      assertThat(countColumns(table, "archived_at")).isEqualTo(1);
+      assertThat(countConstraints(table, "fk_" + table + "_email_identity")).isEqualTo(1);
+      assertThat(countConstraints(table, "ck_" + table + "_email_archive")).isEqualTo(1);
+    }
+  }
+
+  @Test
   void 고객별_Arc_번호_컬럼과_유일_제약이_생성된다() throws SQLException {
     assertThat(countColumns("arcs", "arc_number")).isEqualTo(1);
     assertThat(countConstraints("arcs", "uk_arcs_customer_arc_number")).isEqualTo(1);
