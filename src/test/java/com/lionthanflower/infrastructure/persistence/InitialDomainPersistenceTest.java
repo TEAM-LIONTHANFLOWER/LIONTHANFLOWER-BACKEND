@@ -4,7 +4,10 @@ package com.lionthanflower.infrastructure.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.lionthanflower.domain.customer.entity.CustomerEmailIdentity;
 import com.lionthanflower.support.PostgreSqlContainerSupport;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -15,11 +18,57 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest
 class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
 
   @Autowired DataSource dataSource;
+
+  @Test
+  void 직접_SQL의_대문자_도메인_입력과_수정을_거절한다() throws SQLException {
+    EmailDomainConstraintChecks.verify(dataSource);
+  }
+
+  @PersistenceContext EntityManager entityManager;
+  @Autowired PlatformTransactionManager transactionManager;
+
+  @Test
+  void 도메인_대소문자만_다른_이메일_계정의_중복_저장을_거절한다() {
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    String local = "User" + java.util.UUID.randomUUID();
+    CustomerEmailIdentity first = CustomerEmailIdentity.create(local + "@Example.COM");
+    CustomerEmailIdentity duplicate = CustomerEmailIdentity.create(local + "@example.com");
+    try {
+      transaction.executeWithoutResult(
+          status -> {
+            entityManager.persist(first);
+            entityManager.flush();
+          });
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  transaction.executeWithoutResult(
+                      status -> {
+                        entityManager.persist(duplicate);
+                        entityManager.flush();
+                      }))
+          .hasRootCauseInstanceOf(SQLException.class);
+      transaction.executeWithoutResult(
+          status -> {
+            assertThat(entityManager.find(CustomerEmailIdentity.class, first.getId()).getEmail())
+                .isEqualTo(local + "@example.com");
+            assertThat(entityManager.find(CustomerEmailIdentity.class, duplicate.getId())).isNull();
+          });
+    } finally {
+      transaction.executeWithoutResult(
+          status -> {
+            CustomerEmailIdentity stored =
+                entityManager.find(CustomerEmailIdentity.class, first.getId());
+            if (stored != null) entityManager.remove(stored);
+          });
+    }
+  }
 
   @Test
   void IA_도메인_테이블이_생성되고_공용_단말_테이블은_제거된다() throws SQLException {
@@ -41,6 +90,26 @@ class InitialDomainPersistenceTest extends PostgreSqlContainerSupport {
                 "customer_notifications"))
         .isEqualTo(14);
     assertThat(countTables("store_devices")).isZero();
+  }
+
+  @Test
+  void 이메일_계정과_인증요청_및_보관_제약이_생성된다() throws SQLException {
+    assertThat(countTables("customer_email_identities", "email_verification_requests"))
+        .isEqualTo(2);
+    assertThat(countConstraints("customer_email_identities", "uk_customer_email_identities_email"))
+        .isEqualTo(1);
+    assertThat(countConstraints("customers", "fk_customers_email_identity")).isEqualTo(1);
+    assertThat(countConstraints("customers", "ck_customers_email_auth")).isEqualTo(1);
+    assertThat(
+            countConstraints(
+                "email_verification_requests", "fk_email_verification_requests_customer"))
+        .isEqualTo(1);
+    for (String table : java.util.List.of("arcs", "visit_memories")) {
+      assertThat(countColumns(table, "email_identity_id")).isEqualTo(1);
+      assertThat(countColumns(table, "archived_at")).isEqualTo(1);
+      assertThat(countConstraints(table, "fk_" + table + "_email_identity")).isEqualTo(1);
+      assertThat(countConstraints(table, "ck_" + table + "_email_archive")).isEqualTo(1);
+    }
   }
 
   @Test

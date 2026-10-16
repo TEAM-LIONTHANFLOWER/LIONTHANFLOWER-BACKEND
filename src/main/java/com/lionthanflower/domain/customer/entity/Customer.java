@@ -5,6 +5,7 @@ import com.lionthanflower.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -23,6 +24,30 @@ public class Customer extends BaseEntity {
 
   @Column(name = "token_hash", nullable = false, unique = true, length = 128)
   private String tokenHash;
+
+  @JdbcTypeCode(SqlTypes.CHAR)
+  @Column(name = "email_identity_id", length = 36)
+  private UUID emailIdentityId;
+
+  @JdbcTypeCode(SqlTypes.TIMESTAMP)
+  @Column(name = "email_verified_at")
+  private Instant emailVerifiedAt;
+
+  @JdbcTypeCode(SqlTypes.TIMESTAMP)
+  @Column(name = "email_auth_expires_at")
+  private Instant emailAuthExpiresAt;
+
+  public UUID getEmailIdentityId() {
+    return emailIdentityId;
+  }
+
+  public Instant getEmailVerifiedAt() {
+    return emailVerifiedAt;
+  }
+
+  public Instant getEmailAuthExpiresAt() {
+    return emailAuthExpiresAt;
+  }
 
   protected Customer() {}
 
