@@ -1,6 +1,7 @@
 // 이메일 계정과 인증 요청에서 사용하는 이메일 형식을 검증하는 클래스
 package com.lionthanflower.domain.customer.entity;
 
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class EmailAddress {
@@ -11,6 +12,13 @@ public final class EmailAddress {
               + "[A-Za-z]{2,63}");
 
   private EmailAddress() {}
+
+  public static String normalize(String email) {
+    validate(email);
+    int separator = email.indexOf('@');
+    return email.substring(0, separator + 1)
+        + email.substring(separator + 1).toLowerCase(Locale.ROOT);
+  }
 
   public static String validate(String email) {
     if (email == null

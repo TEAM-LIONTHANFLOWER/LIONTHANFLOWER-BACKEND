@@ -27,13 +27,13 @@ public class CustomerEmailIdentity extends BaseEntity {
   @PrePersist
   @PreUpdate
   private void validateEmail() {
-    EmailAddress.validate(email);
+    email = EmailAddress.normalize(email);
   }
 
   public static CustomerEmailIdentity create(String email) {
     CustomerEmailIdentity identity = new CustomerEmailIdentity();
     identity.id = UUID.randomUUID();
-    identity.email = EmailAddress.validate(email);
+    identity.email = EmailAddress.normalize(email);
     return identity;
   }
 

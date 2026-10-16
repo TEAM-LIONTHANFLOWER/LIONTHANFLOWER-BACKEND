@@ -13,7 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class EmailAddressTest {
   @ParameterizedTest
-  @ValueSource(strings = {"user@example.com", "first.last+tag@example.co.kr", "User@Example.COM"})
+  @ValueSource(strings = {"user@example.com", "first.last+tag@example.co.kr"})
   void 유효한_이메일로_계정과_인증요청을_생성한다(String email) {
     assertThat(CustomerEmailIdentity.create(email).getEmail()).isEqualTo(email);
     assertThat(
@@ -57,6 +57,22 @@ class EmailAddressTest {
                     "hash",
                     Instant.parse("2030-01-01T00:00:00Z")))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"User@Example.COM", "User@example.com", "User@EXAMPLE.com"})
+  void 계정과_인증요청은_도메인만_소문자로_정규화한다(String email) {
+    assertThat(CustomerEmailIdentity.create(email).getEmail()).isEqualTo("User@example.com");
+    assertThat(
+            EmailVerificationRequest.create(
+                    UUID.randomUUID(),
+                    email,
+                    "ARCHIVE",
+                    "hash",
+                    Instant.parse("2030-01-01T00:00:00Z"))
+                .getEmail())
+        .isEqualTo("User@example.com");
+    assertThat(EmailAddress.normalize(EmailAddress.normalize(email))).isEqualTo("User@example.com");
   }
 
   @Test

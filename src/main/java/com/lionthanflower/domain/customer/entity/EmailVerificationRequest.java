@@ -53,7 +53,7 @@ public class EmailVerificationRequest extends BaseEntity {
   @PrePersist
   @PreUpdate
   private void validateEmail() {
-    EmailAddress.validate(email);
+    email = EmailAddress.normalize(email);
   }
 
   public static EmailVerificationRequest create(
@@ -71,7 +71,7 @@ public class EmailVerificationRequest extends BaseEntity {
     EmailVerificationRequest request = new EmailVerificationRequest();
     request.id = UUID.randomUUID();
     request.customerId = customerId;
-    request.email = EmailAddress.validate(email);
+    request.email = EmailAddress.normalize(email);
     request.purpose = purpose;
     request.codeHash = codeHash;
     request.expiresAt = expiresAt;
